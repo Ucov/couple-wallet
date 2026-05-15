@@ -35,7 +35,7 @@ export async function signup(formData: FormData) {
   })
 
   if (error) {
-    redirect('/login?message=Could not sign up')
+    redirect(`/login?message=${encodeURIComponent(error.message)}`)
   }
 
   revalidatePath('/', 'layout')
