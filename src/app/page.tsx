@@ -53,14 +53,24 @@ export default async function Dashboard() {
   let settlementMessage = "No hay gastos este mes."
   let myTotal = 0
   let partnerTotal = 0
+  const categoryTotals: Record<string, { amount: number, color: string }> = {}
 
   if (profiles && expenses) {
     expenses.forEach(exp => {
+      // Cálculo de totales personales
       if (exp.paid_by === user.id) {
         myTotal += Number(exp.amount)
       } else {
         partnerTotal += Number(exp.amount)
       }
+
+      // Cálculo por categorías
+      const catName = exp.categories?.name || 'Otros'
+      const catColor = exp.categories?.color || '#6b7280'
+      if (!categoryTotals[catName]) {
+        categoryTotals[catName] = { amount: 0, color: catColor }
+      }
+      categoryTotals[catName].amount += Number(exp.amount)
     })
 
     if (profiles.length === 2) {
@@ -96,7 +106,7 @@ export default async function Dashboard() {
       </header>
 
       {/* Ajuste de Cuentas */}
-      <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mb-8 shadow-lg">
+      <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mb-6 shadow-lg">
         <h2 className="text-sm text-zinc-400 font-semibold mb-2 uppercase tracking-wider">Ajuste del Mes</h2>
         <p className="text-xl font-medium text-emerald-400 leading-snug">
           {settlementMessage}
@@ -112,6 +122,24 @@ export default async function Dashboard() {
           </div>
         </div>
       </section>
+
+      {/* Resumen por Categorías */}
+      {Object.keys(categoryTotals).length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-sm text-zinc-400 font-semibold mb-4 uppercase tracking-wider">Por Categorías</h2>
+          <div className="grid grid-cols-2 gap-3">
+            {Object.entries(categoryTotals).map(([name, data]) => (
+              <div key={name} className="bg-zinc-900/30 border border-zinc-800/50 rounded-xl p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: data.color }}></div>
+                  <span className="text-xs text-zinc-400 font-medium truncate">{name}</span>
+                </div>
+                <p className="text-lg font-bold text-zinc-100">€{data.amount.toFixed(2)}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Lista de Gastos */}
       <section className="flex-1">
