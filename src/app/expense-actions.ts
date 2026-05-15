@@ -24,7 +24,7 @@ export async function deleteExpense(id: string) {
   return { success: true }
 }
 
-export async function updateExpense(id: string, formData: FormData) {
+export async function updateExpense(id: string, formData: FormData): Promise<void> {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -36,7 +36,7 @@ export async function updateExpense(id: string, formData: FormData) {
   const date = formData.get('date') as string
 
   if (!amount || !concept) {
-    return { error: 'Faltan campos obligatorios' }
+    throw new Error('Faltan campos obligatorios')
   }
 
   const { error } = await supabase
@@ -51,7 +51,7 @@ export async function updateExpense(id: string, formData: FormData) {
 
   if (error) {
     console.error('Error updating expense:', error)
-    return { error: error.message }
+    throw new Error(error.message)
   }
 
   revalidatePath('/')
