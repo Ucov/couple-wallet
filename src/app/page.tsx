@@ -13,64 +13,79 @@ export default async function Dashboard() {
     redirect('/login')
   }
 
-  // 2. Obtener gastos del mes actual
+  // 2. Obtener perfil del usuario
+  const { data: userProfile } = await supabase
+    .from('profiles')
+    .select('couple_id, display_name, name')
+    .eq('id', user.id)
+    .single()
+
+  const myName = userProfile?.name || userProfile?.display_name || user.email?.split('@')[0] || 'Tú'
+
+  // 3. Obtener gastos del mes actual
   const startOfMonth = new Date()
   startOfMonth.setDate(1)
   startOfMonth.setHours(0, 0, 0, 0)
 
-  const { data: expenses } = await supabase
+  let expensesQuery = supabase
     .from('expenses')
     .select(`
-      id, amount, concept, date, paid_by,
-      categories ( name, icon, color ),
-      profiles ( name )
+      id, amount, concept, description, date, created_at, paid_by,
+      categories ( name, icon )
     `)
-    .gte('date', startOfMonth.toISOString())
-    .order('date', { ascending: false })
+    .gte('created_at', startOfMonth.toISOString())
+    .order('created_at', { ascending: false })
 
-  // 3. Obtener perfiles para el cálculo
-  const { data: profiles } = await supabase.from('profiles').select('*')
-  
-  // Cálculo de Deudas
-  let settlementMessage = "No hay gastos este mes."
-  let balanceData = { youPaid: 0, partnerPaid: 0 }
+  // Filtrar por pareja o por usuario propio
+  if (userProfile?.couple_id) {
+    expensesQuery = expensesQuery.eq('couple_id', userProfile.couple_id)
+  } else {
+    expensesQuery = expensesQuery.eq('paid_by', user.id)
+  }
 
-  if (profiles && profiles.length === 2 && expenses) {
-    const p1 = profiles[0]
-    const p2 = profiles[1]
+  const { data: expenses } = await expensesQuery
 
-    let totalP1 = 0
-    let totalP2 = 0
+  // 4. Cálculo de totales del mes
+  let myTotal = 0
+  let partnerTotal = 0
+  let settlementMessage = 'No hay gastos este mes.'
 
+  if (expenses && expenses.length > 0) {
     expenses.forEach(exp => {
-      if (exp.paid_by === p1.id) totalP1 += Number(exp.amount)
-      if (exp.paid_by === p2.id) totalP2 += Number(exp.amount)
+      if (exp.paid_by === user.id) {
+        myTotal += Number(exp.amount)
+      } else {
+        partnerTotal += Number(exp.amount)
+      }
     })
 
-    const difference = Math.abs(totalP1 - totalP2)
-    const debt = difference / 2
-
-    if (totalP1 > totalP2) {
-      settlementMessage = `${p2.name} le debe €${debt.toFixed(2)} a ${p1.name}`
-    } else if (totalP2 > totalP1) {
-      settlementMessage = `${p1.name} le debe €${debt.toFixed(2)} a ${p2.name}`
+    if (userProfile?.couple_id) {
+      // Modo pareja: calcular quién debe a quién
+      const diff = Math.abs(myTotal - partnerTotal)
+      const debt = diff / 2
+      if (myTotal > partnerTotal) {
+        settlementMessage = `Tu pareja te debe €${debt.toFixed(2)}`
+      } else if (partnerTotal > myTotal) {
+        settlementMessage = `Le debes €${debt.toFixed(2)} a tu pareja`
+      } else {
+        settlementMessage = 'Estáis en paz. 🍻'
+      }
     } else {
-      settlementMessage = "Estáis en paz. 🍻"
+      settlementMessage = `Has gastado €${myTotal.toFixed(2)} este mes`
     }
-
-    if (user.id === p1.id) {
-      balanceData = { youPaid: totalP1, partnerPaid: totalP2 }
-    } else {
-      balanceData = { youPaid: totalP2, partnerPaid: totalP1 }
-    }
-  } else if (profiles && profiles.length < 2) {
-    settlementMessage = "Falta tu pareja. Dile que se registre."
   }
+
+  const showPartnerMissing = userProfile?.couple_id === null || userProfile?.couple_id === undefined
 
   return (
     <main className="w-full max-w-md mx-auto p-4 flex flex-col min-h-screen">
       <header className="flex justify-between items-center py-6 mb-2">
-        <h1 className="text-2xl font-bold">CoupleWallet</h1>
+        <div>
+          <h1 className="text-2xl font-bold">CoupleWallet</h1>
+          <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
+            {myName}
+          </p>
+        </div>
         <form action={logout}>
           <button className="text-zinc-400 hover:text-white transition-colors">
             <LogOut size={20} />
@@ -82,16 +97,16 @@ export default async function Dashboard() {
       <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mb-8 shadow-lg">
         <h2 className="text-sm text-zinc-400 font-semibold mb-2 uppercase tracking-wider">Ajuste del Mes</h2>
         <p className="text-xl font-medium text-emerald-400 leading-snug">
-          {settlementMessage}
+          {showPartnerMissing ? 'Falta tu pareja. Dile que se registre.' : settlementMessage}
         </p>
         <div className="flex justify-between mt-6 text-sm">
           <div className="flex flex-col">
             <span className="text-zinc-500">Tú has pagado</span>
-            <span className="text-lg font-semibold text-zinc-200">€{balanceData.youPaid.toFixed(2)}</span>
+            <span className="text-lg font-semibold text-zinc-200">€{myTotal.toFixed(2)}</span>
           </div>
           <div className="flex flex-col text-right">
             <span className="text-zinc-500">Tu pareja pagó</span>
-            <span className="text-lg font-semibold text-zinc-200">€{balanceData.partnerPaid.toFixed(2)}</span>
+            <span className="text-lg font-semibold text-zinc-200">€{partnerTotal.toFixed(2)}</span>
           </div>
         </div>
       </section>
@@ -101,24 +116,26 @@ export default async function Dashboard() {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold text-zinc-100">Gastos Recientes</h2>
         </div>
-        
+
         <div className="space-y-3 pb-24">
           {expenses?.map((expense: any) => (
             <div key={expense.id} className="bg-zinc-900/50 p-4 rounded-xl flex justify-between items-center border border-zinc-800/50">
               <div>
-                <p className="font-medium text-zinc-200">{expense.concept}</p>
+                <p className="font-medium text-zinc-200">{expense.concept || expense.description}</p>
                 <div className="flex gap-2 text-xs text-zinc-500 mt-1">
-                  <span className="px-2 py-0.5 bg-zinc-800 rounded-full">{expense.categories?.name}</span>
-                  <span>• {new Date(expense.date).toLocaleDateString()}</span>
+                  <span className="px-2 py-0.5 bg-zinc-800 rounded-full">{expense.categories?.name || 'Sin categoría'}</span>
+                  <span>• {new Date(expense.date || expense.created_at).toLocaleDateString('es-ES')}</span>
                 </div>
               </div>
               <div className="text-right">
-                <p className="font-bold text-zinc-100">€{expense.amount}</p>
-                <p className="text-xs text-zinc-500 mt-1">Pagó {expense.profiles?.name}</p>
+                <p className="font-bold text-zinc-100">€{Number(expense.amount).toFixed(2)}</p>
+                <p className="text-xs text-zinc-500 mt-1">
+                  {expense.paid_by === user.id ? 'Tú' : 'Tu pareja'}
+                </p>
               </div>
             </div>
           ))}
-          {expenses?.length === 0 && (
+          {(!expenses || expenses.length === 0) && (
             <p className="text-center text-zinc-500 py-8">No hay gastos todavía. ¡Añade el primero!</p>
           )}
         </div>
@@ -126,8 +143,8 @@ export default async function Dashboard() {
 
       {/* Botón Flotante */}
       <div className="fixed bottom-6 left-0 right-0 flex justify-center pointer-events-none">
-        <Link 
-          href="/add" 
+        <Link
+          href="/add"
           className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-full p-4 shadow-xl shadow-emerald-900/20 pointer-events-auto transition-transform hover:scale-105 active:scale-95"
         >
           <PlusCircle size={32} />
