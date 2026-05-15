@@ -1,14 +1,29 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { PlusCircle, LogOut, RefreshCw, Trash2, Pencil, ChevronLeft, ChevronRight } from 'lucide-react'
+import { PlusCircle, LogOut, Trash2, Pencil, ChevronLeft, ChevronRight } from 'lucide-react'
 import { logout } from './login/actions'
 import { deleteExpense } from './expense-actions'
-import { revalidatePath } from 'next/cache'
 
 // Forzamos que la página sea siempre dinámica y no se guarde en caché
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+interface Expense {
+  id: string
+  amount: number
+  concept: string
+  description?: string
+  date: string
+  created_at: string
+  paid_by: string
+  category_id?: string
+  categories: {
+    name: string
+    icon: string
+    color: string
+  } | null
+}
 
 export default async function Dashboard({
   searchParams,
@@ -198,7 +213,7 @@ export default async function Dashboard({
         </div>
 
         <div className="space-y-3 pb-24">
-          {expenses?.map((expense: any) => (
+          {expenses?.map((expense: Expense) => (
             <div key={expense.id} className="bg-zinc-900/50 p-4 rounded-xl flex justify-between items-center border border-zinc-800/50">
               <div className="flex gap-3 items-center">
                 <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-xl">
