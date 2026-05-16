@@ -17,11 +17,10 @@ export async function deleteExpense(id: string) {
 
   if (error) {
     console.error('Error deleting expense:', error)
-    return { error: error.message }
+    throw new Error(error.message)
   }
 
   revalidatePath('/')
-  return { success: true }
 }
 
 export async function updateExpense(id: string, formData: FormData): Promise<void> {
