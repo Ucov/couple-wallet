@@ -6,6 +6,7 @@ import { logout } from './login/actions'
 import { deleteExpense } from './expense-actions'
 import { applyRecurringExpenses } from './recurring-actions'
 import { settleMonth } from './settlement-actions'
+import { ExpenseChart } from '@/components/ExpenseChart'
 
 // Forzamos que la página sea siempre dinámica y no se guarde en caché
 export const dynamic = 'force-dynamic'
@@ -239,6 +240,7 @@ export default async function Dashboard({
       {sortedCategories.length > 0 && (
         <section className="mb-8">
           <h2 className="text-lg font-semibold text-zinc-100 mb-4">Gastos por Categoría</h2>
+          <ExpenseChart data={sortedCategories} />
           <div className="space-y-4">
             {sortedCategories.map((cat) => (
               <div key={cat.name}>
