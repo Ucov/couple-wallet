@@ -272,10 +272,10 @@ export default async function Dashboard({
                 <Link href={`/edit/${expense.id}`} className="text-zinc-600 hover:text-emerald-400 transition-colors p-1">
                   <Pencil size={18} />
                 </Link>
-                <DeleteExpenseButton
-                  id={expense.id}
-                  concept={expense.concept}
-                  amount={Number(expense.amount)}
+                <DeleteExpenseButton 
+                  id={expense.id} 
+                  concept={expense.concept} 
+                  amount={Number(expense.amount)} 
                 />
               </div>
             </div>

@@ -3,6 +3,15 @@
 import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { z } from 'zod'
+
+const expenseSchema = z.object({
+  amount: z.number().positive('La cantidad debe ser mayor a 0'),
+  concept: z.string().min(1, 'El concepto es obligatorio'),
+  category_id: z.string().uuid('Categoría no válida').optional().nullable(),
+  date: z.string().min(1, 'La fecha es obligatoria'),
+  paid_by_me: z.enum(['true', 'false']),
+})
 
 export async function addExpense(formData: FormData) {
   const supabase = await createClient()
@@ -10,19 +19,46 @@ export async function addExpense(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
+  // Validar con Zod
+  const rawData = {
+    amount: parseFloat(formData.get('amount') as string),
+    concept: formData.get('concept') as string,
+    category_id: formData.get('category_id') as string || null,
+    date: formData.get('date') as string,
+    paid_by_me: formData.get('paid_by_me') as 'true' | 'false',
+  }
+
+  const validatedFields = expenseSchema.safeParse(rawData)
+
+  if (!validatedFields.success) {
+    const errorMsg = validatedFields.error.issues[0].message
+    redirect(`/add?message=${encodeURIComponent(errorMsg)}`)
+  }
+
+  const { amount, concept, category_id, date, paid_by_me } = validatedFields.data
+
   const { data: profile } = await supabase
     .from('profiles')
     .select('couple_id')
     .eq('id', user.id)
     .single()
 
-  const amount = parseFloat(formData.get('amount') as string)
-  const concept = formData.get('concept') as string
-  const category_id = formData.get('category_id') as string
-  const dateStr = formData.get('date') as string
+  let finalPaidBy = user.id
 
-  if (!amount || !concept) {
-    redirect('/add?message=Faltan campos obligatorios')
+  // Si pagó la pareja, buscar su ID
+  if (paid_by_me === 'false' && profile?.couple_id) {
+    const { data: partnerProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('couple_id', profile.couple_id)
+      .neq('id', user.id)
+      .maybeSingle()
+      
+    if (partnerProfile) {
+      finalPaidBy = partnerProfile.id
+    } else {
+      redirect(`/add?message=${encodeURIComponent('No se encontró a tu pareja')}`)
+    }
   }
 
   // Validar que la fecha no sea futura
@@ -38,9 +74,9 @@ export async function addExpense(formData: FormData) {
     amount,
     concept,
     category_id: category_id || null,
-    paid_by: user.id,
+    paid_by: finalPaidBy,
     couple_id: profile?.couple_id || null,
-    date: dateStr ? new Date(dateStr).toISOString() : new Date().toISOString(),
+    date: new Date(date).toISOString(),
   })
 
   if (error) {

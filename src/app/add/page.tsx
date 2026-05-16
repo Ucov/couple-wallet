@@ -72,7 +72,23 @@ export default async function AddExpensePage({
           </div>
         </div>
 
-        {/* Para este MVP, asumimos que quien crea el gasto es quien lo pagó */}
+        <div>
+          <label className="block text-sm font-semibold text-zinc-400 mb-2">¿Quién lo ha pagado?</label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="cursor-pointer">
+              <input type="radio" name="paid_by_me" value="true" className="peer sr-only" defaultChecked />
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-center peer-checked:bg-emerald-600/20 peer-checked:border-emerald-500 peer-checked:text-emerald-400 transition-colors">
+                Yo
+              </div>
+            </label>
+            <label className="cursor-pointer">
+              <input type="radio" name="paid_by_me" value="false" className="peer sr-only" />
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-center peer-checked:bg-emerald-600/20 peer-checked:border-emerald-500 peer-checked:text-emerald-400 transition-colors">
+                Mi pareja
+              </div>
+            </label>
+          </div>
+        </div>
         
         {message && (
           <div className="p-4 rounded-xl bg-red-950 border border-red-900 text-red-200 text-sm text-center">
