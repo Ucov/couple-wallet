@@ -1,5 +1,6 @@
 'use client'
 
+import React, { useEffect, useState } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 
 interface ChartData {
@@ -9,6 +10,16 @@ interface ChartData {
 }
 
 export function ExpenseChart({ data }: { data: ChartData[] }) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return <div className="h-64 w-full mt-4" />
+  }
+
   if (data.length === 0) return null
 
   return (
@@ -29,7 +40,7 @@ export function ExpenseChart({ data }: { data: ChartData[] }) {
               <Cell key={`cell-${index}`} fill={entry.color} />
             ))}
           </Pie>
-          <Tooltip 
+          <Tooltip
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             formatter={(value: any) => `€${Number(value).toFixed(2)}`}
             contentStyle={{ backgroundColor: '#18181b', border: '1px solid #27272a', borderRadius: '0.5rem', color: '#f4f4f5' }}
