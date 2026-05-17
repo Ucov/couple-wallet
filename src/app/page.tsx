@@ -22,7 +22,6 @@ interface Expense {
   id: string
   amount: number
   concept: string
-  description?: string
   date: string
   created_at: string
   paid_by: string
@@ -45,21 +44,31 @@ export default async function Dashboard({
   }
 
   // 2. Obtener perfil del usuario
-  const { data: userProfile } = await supabase
+  const { data: userProfile, error: profileError } = await supabase
     .from('profiles')
     .select(`
       couple_id, 
-      display_name, 
-      name,
-      couples ( join_code )
+      name
     `)
     .eq('id', user.id)
     .single()
 
-  const coupleData = Array.isArray(userProfile?.couples) ? userProfile?.couples[0] : userProfile?.couples;
-  const joinCode = coupleData?.join_code;
+  if (profileError) {
+    console.error('Error fetching profile:', profileError)
+  }
 
-  const myName = userProfile?.name || userProfile?.display_name || user.email?.split('@')[0] || 'Usuario'
+  let joinCode = null;
+  if (userProfile?.couple_id) {
+    const { data: coupleData } = await supabase
+      .from('couples')
+      .select('join_code')
+      .eq('id', userProfile.couple_id)
+      .single()
+    
+    joinCode = coupleData?.join_code;
+  }
+
+  const myName = userProfile?.name || user.email?.split('@')[0] || 'Usuario'
 
   // 3. Manejo de fechas y gastos recurrentes
   const now = new Date()
@@ -86,7 +95,6 @@ export default async function Dashboard({
       id, 
       amount, 
       concept, 
-      description, 
       date, 
       created_at, 
       paid_by,
