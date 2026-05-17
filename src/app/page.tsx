@@ -47,9 +47,17 @@ export default async function Dashboard({
   // 2. Obtener perfil del usuario
   const { data: userProfile } = await supabase
     .from('profiles')
-    .select('couple_id, display_name, name')
+    .select(`
+      couple_id, 
+      display_name, 
+      name,
+      couples ( join_code )
+    `)
     .eq('id', user.id)
     .single()
+
+  const coupleData = Array.isArray(userProfile?.couples) ? userProfile?.couples[0] : userProfile?.couples;
+  const joinCode = coupleData?.join_code;
 
   const myName = userProfile?.name || userProfile?.display_name || user.email?.split('@')[0] || 'Usuario'
 
@@ -182,6 +190,11 @@ export default async function Dashboard({
           <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest mt-1">
             Hola, {myName}
           </p>
+          {joinCode && (
+            <p className="text-xs text-emerald-500/80 font-medium mt-1 cursor-help" title="Comparte este código con tu pareja para que se una">
+              Código vinculación: <span className="font-mono text-emerald-400 bg-emerald-950/30 px-1.5 py-0.5 rounded">{joinCode}</span>
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <Link href="/recurring" className="text-zinc-400 hover:text-emerald-400 transition-colors" title="Gastos Fijos">
