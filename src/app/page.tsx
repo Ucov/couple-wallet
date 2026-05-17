@@ -67,6 +67,9 @@ export default async function Dashboard({
       .single()
     
     joinCode = coupleData?.join_code;
+  } else {
+    // Sin grupo → llevar directamente a la pantalla de configuración
+    redirect('/setup-couple')
   }
 
   const myName = userProfile?.name || user.email?.split('@')[0] || 'Usuario'
