@@ -1,18 +1,19 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react'
+import { useActionState, useEffect, useRef, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { Trash2 } from 'lucide-react'
 import { deleteExpenseAction, type ActionState } from '@/app/expense-actions'
 
 const initialState: ActionState = { error: null }
 
-function SubmitButton() {
+function SubmitButton({ onSubmit }: { onSubmit: () => void }) {
   const { pending } = useFormStatus()
   return (
     <button
       type="submit"
       disabled={pending}
+      onClick={onSubmit}
       className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded-xl py-3 font-semibold transition-colors"
     >
       {pending ? 'Eliminando…' : 'Eliminar'}
@@ -31,7 +32,10 @@ export default function DeleteExpenseButton({
 }) {
   const [open, setOpen] = useState(false)
   const [state, dispatch] = useActionState(deleteExpenseAction, initialState)
+  // Solo cerramos el modal si el usuario ha pulsado "Eliminar" al menos una vez
+  const submittedRef = useRef(false)
 
+  // Cerrar con Escape
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -41,17 +45,24 @@ export default function DeleteExpenseButton({
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
+  // Cerrar el modal solo si el action terminó con éxito (error===null) Y el usuario lo había enviado
   useEffect(() => {
-    if (state.error === null && open) {
+    if (submittedRef.current && state.error === null) {
       setOpen(false)
+      submittedRef.current = false
     }
-  }, [state, open])
+  }, [state])
+
+  function handleOpen() {
+    submittedRef.current = false
+    setOpen(true)
+  }
 
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={handleOpen}
         className="text-zinc-600 hover:text-red-400 transition-colors p-1"
         aria-label="Eliminar gasto"
       >
@@ -87,7 +98,7 @@ export default function DeleteExpenseButton({
               >
                 Cancelar
               </button>
-              <SubmitButton />
+              <SubmitButton onSubmit={() => { submittedRef.current = true }} />
             </form>
           </div>
         </div>
