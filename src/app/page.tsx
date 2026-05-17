@@ -1,12 +1,13 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { PlusCircle, LogOut, Pencil, ChevronLeft, ChevronRight, Repeat, CheckCircle } from 'lucide-react'
+import { PlusCircle, LogOut, Pencil, ChevronLeft, ChevronRight, Repeat, CheckCircle, UserX } from 'lucide-react'
 import { logout } from './login/actions'
 import DeleteExpenseButton from '@/components/DeleteExpenseButton'
 import CategoryDonutChart from '@/components/CategoryDonutChart'
 import { applyRecurringExpenses } from './recurring-actions'
 import { settleMonth } from './settlement-actions'
+import { leaveCouple } from './setup-couple/actions'
 
 // Forzamos que la página sea siempre dinámica y no se guarde en caché
 export const dynamic = 'force-dynamic'
@@ -269,6 +270,16 @@ export default async function Dashboard({
             <span className={`text-lg font-semibold ${isSettled ? 'text-zinc-400' : 'text-zinc-200'}`}>€{partnerTotal.toFixed(2)}</span>
           </div>
         </div>
+        {userProfile?.couple_id && (
+          <form action={leaveCouple} className="mt-4 pt-4 border-t border-zinc-800">
+            <button
+              type="submit"
+              className="w-full text-xs font-medium text-zinc-500 hover:text-red-400 transition-colors flex items-center justify-center gap-1.5 py-1"
+            >
+              <UserX size={13} /> Salir del grupo
+            </button>
+          </form>
+        )}
       </section>
 
       {/* Resumen por Categorías (donut) */}

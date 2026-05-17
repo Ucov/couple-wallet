@@ -64,3 +64,21 @@ export async function joinCouple(formData: FormData) {
   revalidatePath('/')
   redirect('/')
 }
+
+export async function leaveCouple() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({ couple_id: null })
+    .eq('id', user.id)
+
+  if (profileError) {
+    throw new Error(profileError.message)
+  }
+
+  revalidatePath('/')
+  redirect('/')
+}
