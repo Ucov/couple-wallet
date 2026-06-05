@@ -6,6 +6,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import BottomNav from "@/components/BottomNav";
 import SwipeNavigation from "@/components/SwipeNavigation";
 import PageTransition from "@/components/PageTransition";
+import PwaRegister from "@/components/PwaRegister";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -63,7 +64,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-[var(--bg-base)] text-[var(--text-primary)] items-center pb-20">
         <ThemeProvider>
-
+          <PwaRegister />
           <SwipeNavigation />
           <PageTransition>
             {children}
