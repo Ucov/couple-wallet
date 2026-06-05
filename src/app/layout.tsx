@@ -33,6 +33,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "CoupleWallet",
   description: "Gestión de finanzas para parejas",
+  applicationName: "CoupleWallet",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
