@@ -94,31 +94,36 @@ export default async function Dashboard({
     ? applyRecurringExpenses(userProfile.couple_id, now.getMonth(), now.getFullYear(), false).catch(e => console.error(e))
     : Promise.resolve()
 
-  let expensesQuery = supabase.from('expenses').select(`
+  let allExpensesQuery = supabase.from('expenses').select(`
       id, amount, concept, date, created_at, paid_by, category_id, is_refundable, is_transfer, categories ( name, icon, color )
-    `).gte('date', startOfMonth.toISOString()).lte('date', endOfMonth.toISOString()).order('date', { ascending: false }).order('created_at', { ascending: false })
+    `).lte('date', endOfMonth.toISOString()).order('date', { ascending: false }).order('created_at', { ascending: false })
 
   let prevExpensesQuery = supabase.from('expenses').select('amount').gte('date', prevMonthStart.toISOString()).lte('date', prevMonthEnd.toISOString()).eq('is_transfer', false)
 
   if (userProfile?.couple_id) {
-    expensesQuery = expensesQuery.eq('couple_id', userProfile.couple_id)
+    allExpensesQuery = allExpensesQuery.eq('couple_id', userProfile.couple_id)
     prevExpensesQuery = prevExpensesQuery.eq('couple_id', userProfile.couple_id)
   } else {
-    expensesQuery = expensesQuery.eq('paid_by', user.id)
+    allExpensesQuery = allExpensesQuery.eq('paid_by', user.id)
     prevExpensesQuery = prevExpensesQuery.eq('paid_by', user.id)
   }
 
   const [
     { data: partnerData },
     _, // recurring
-    { data: expenses },
+    { data: allExpenses },
     { data: prevExpenses }
   ] = await Promise.all([
     partnerQuery,
     applyRecurring,
-    expensesQuery,
+    allExpensesQuery,
     prevExpensesQuery
   ])
+
+  const expenses = (allExpenses || []).filter((e: any) => {
+    const d = new Date(e.date)
+    return d >= startOfMonth && d <= endOfMonth
+  })
 
   if (partnerData?.name) partnerName = partnerData.name
 
@@ -174,8 +179,8 @@ export default async function Dashboard({
       dailyData[day - 1][myName] = myCumulative
       dailyData[day - 1][partnerName] = partnerCumulative
 
-      const categories = exp.categories
-      const category = Array.isArray(categories) ? categories[0] : categories
+      const category = Array.isArray(exp.categories) ? exp.categories[0] : exp.categories
+
       const catId = exp.category_id || 'no-category'
       if (!categoryTotals[catId]) {
         categoryTotals[catId] = {
@@ -219,22 +224,82 @@ export default async function Dashboard({
   let showSettleButton = false
   let debtAmount = 0
   let isOwed = false
+  let prevDebtAmount = 0
+  let prevIsOwed = false
+  let currMonthDebtAmount = 0
+  let currMonthIsOwed = false
 
   if (userProfile?.couple_id) {
     const mySplitPercentage = userProfile?.split_percentage ?? 50
+
+    // Calcular balance acumulado HASTA el final del mes anterior (deuda arrastrada)
+    const prevAccumExpenses = (allExpenses || []).filter((e: any) => new Date(e.date) < startOfMonth)
+    let prevMyNorm = 0, prevPartNorm = 0, prevMyRef = 0, prevPartRef = 0, prevMyTrans = 0, prevPartTrans = 0
+    prevAccumExpenses.forEach(exp => {
+      const amount = Number(exp.amount)
+      if (exp.is_transfer) {
+        if (exp.paid_by === user.id) prevMyTrans += amount
+        else prevPartTrans += amount
+      } else if (exp.is_refundable) {
+        if (exp.paid_by === user.id) prevMyRef += amount
+        else prevPartRef += amount
+      } else {
+        if (exp.paid_by === user.id) prevMyNorm += amount
+        else prevPartNorm += amount
+      }
+    })
+    const prevNormalTotal = prevMyNorm + prevPartNorm
+    let prevMyBalance = (prevNormalTotal * (mySplitPercentage / 100)) - prevMyNorm
+    prevMyBalance += prevPartRef - prevMyRef - prevMyTrans + prevPartTrans
+    prevDebtAmount = Math.abs(prevMyBalance)
+    prevIsOwed = prevMyBalance < -0.01
+
+    // Calcular balance acumulado HASTA el final del mes actual (deuda total)
+    const viewedExpenses = (allExpenses || []).filter((e: any) => new Date(e.date) <= endOfMonth)
     
-    const normalTotal = myNormalTotal + partnerNormalTotal
-    const myExpectedNormalShare = normalTotal * (mySplitPercentage / 100)
+    let myNorm = 0, partNorm = 0, myRef = 0, partRef = 0, myTrans = 0, partTrans = 0
+    viewedExpenses.forEach(exp => {
+      const amount = Number(exp.amount)
+      if (exp.is_transfer) {
+        if (exp.paid_by === user.id) myTrans += amount
+        else partTrans += amount
+      } else if (exp.is_refundable) {
+        if (exp.paid_by === user.id) myRef += amount
+        else partRef += amount
+      } else {
+        if (exp.paid_by === user.id) myNorm += amount
+        else partNorm += amount
+      }
+    })
     
-    let myBalance = myExpectedNormalShare - myNormalTotal // >0 = I underpaid normal expenses
-    myBalance += partnerRefundableTotal // I owe 100% of their refundable expenses
-    myBalance -= myRefundableTotal // They owe 100% of my refundable expenses
+    const normalTotal = myNorm + partNorm
+    let myBalance = (normalTotal * (mySplitPercentage / 100)) - myNorm
+    myBalance += partRef - myRef - myTrans + partTrans
     
-    // Aplicar transferencias internas (Bizums)
-    myBalance -= myTransfersSent // Yo te pagué deuda, así que te debo menos
-    myBalance += partnerTransfersSent // Tú me pagaste deuda, así que te debo más
-    
+    // Calcular balance SOLO del mes actual (para mostrar el desglose)
+    const currentMonthExpenses = expenses
+    let currMyNorm = 0, currPartNorm = 0, currMyRef = 0, currPartRef = 0, currMyTrans = 0, currPartTrans = 0
+    currentMonthExpenses.forEach((exp: any) => {
+      const amount = Number(exp.amount)
+      if (exp.is_transfer) {
+        if (exp.paid_by === user.id) currMyTrans += amount
+        else currPartTrans += amount
+      } else if (exp.is_refundable) {
+        if (exp.paid_by === user.id) currMyRef += amount
+        else currPartRef += amount
+      } else {
+        if (exp.paid_by === user.id) currMyNorm += amount
+        else currPartNorm += amount
+      }
+    })
+    const currNormalTotal = currMyNorm + currPartNorm
+    let currMyBalance = (currNormalTotal * (mySplitPercentage / 100)) - currMyNorm
+    currMyBalance += currPartRef - currMyRef - currMyTrans + currPartTrans
+    currMonthDebtAmount = Math.abs(currMyBalance)
+    currMonthIsOwed = currMyBalance < -0.01
+
     debtAmount = Math.abs(myBalance)
+
     if (myBalance < -0.01) { // I overpaid overall
       settlementMessage = 'Te deben un Bizum de:'
       settlementSubMessage = partnerName
@@ -292,6 +357,10 @@ export default async function Dashboard({
           myTotal={myTotal}
           partnerTotal={partnerTotal}
           partnerName={partnerName}
+          prevDebtAmount={prevDebtAmount}
+          prevIsOwed={prevIsOwed}
+          currMonthDebtAmount={currMonthDebtAmount}
+          currMonthIsOwed={currMonthIsOwed}
           settleAction={userProfile?.couple_id && partnerData?.id ? settleMonth.bind(null, userProfile.couple_id, currentMonth, currentYear, debtAmount, isOwed ? partnerData.id : user.id) : undefined}
         />
       </section>
@@ -341,15 +410,14 @@ export default async function Dashboard({
             </div>
           )}
           
-          {expenses?.map((expense: Expense) => {
-            const categories = expense.categories
-            const category = Array.isArray(categories) ? categories[0] : categories
+          {expenses?.map((expense: any) => {
+            const category = Array.isArray(expense.categories) ? expense.categories[0] : expense.categories
             return (
               <ExpenseItem
                 key={expense.id}
                 id={expense.id}
                 concept={expense.concept}
-                amount={Number(expense.amount)}
+                amount={expense.amount}
                 date={expense.date}
                 paidByStr={expense.paid_by === user.id ? 'Tú' : partnerName}
                 categoryName={category?.name || 'General'}
