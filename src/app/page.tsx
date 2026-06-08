@@ -339,6 +339,7 @@ export default async function Dashboard({
       settlementSubMessage = ''
       isOwed = false
       showSettleButton = false
+      debtAmount = 0
     } else {
       if (myBalance < -0.01) { // I overpaid overall
         settlementMessage = 'Te deben un Bizum de:'
