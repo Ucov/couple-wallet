@@ -96,7 +96,7 @@ export default async function Dashboard({
 
   let allExpensesQuery = supabase.from('expenses').select(`
       id, amount, concept, date, created_at, paid_by, category_id, is_refundable, is_transfer, categories ( name, icon, color )
-    `).lte('date', endOfMonth.toISOString()).order('date', { ascending: false }).order('created_at', { ascending: false })
+    `).order('date', { ascending: false }).order('created_at', { ascending: false })
 
   let prevExpensesQuery = supabase.from('expenses').select('amount').gte('date', prevMonthStart.toISOString()).lte('date', prevMonthEnd.toISOString()).eq('is_transfer', false)
 
@@ -298,24 +298,66 @@ export default async function Dashboard({
     currMonthDebtAmount = Math.abs(currMyBalance)
     currMonthIsOwed = currMyBalance < -0.01
 
+    // Comprobar si la deuda de este mes fue compensada en meses posteriores
+    let futureGlobalBalance = myBalance
+    let isSettled = false
+    let settledMonthName = ''
+    
+    if (Math.abs(myBalance) > 0.01) {
+      const initialSign = Math.sign(myBalance)
+      const futureExpenses = (allExpenses || [])
+        .filter((e: any) => new Date(e.date) > endOfMonth)
+        .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        
+      for (const exp of futureExpenses) {
+        const amount = Number(exp.amount)
+        if (exp.is_transfer) {
+          if (exp.paid_by === user.id) futureGlobalBalance -= amount
+          else futureGlobalBalance += amount
+        } else if (exp.is_refundable) {
+          if (exp.paid_by === user.id) futureGlobalBalance -= amount
+          else futureGlobalBalance += amount
+        } else {
+          const myShare = amount * (mySplitPercentage / 100)
+          if (exp.paid_by === user.id) futureGlobalBalance += (myShare - amount)
+          else futureGlobalBalance += myShare
+        }
+        
+        if (Math.abs(futureGlobalBalance) < 0.5 || Math.sign(futureGlobalBalance) !== initialSign) {
+          isSettled = true
+          settledMonthName = new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(new Date(exp.date))
+          settledMonthName = settledMonthName.charAt(0).toUpperCase() + settledMonthName.slice(1)
+          break
+        }
+      }
+    }
+
     debtAmount = Math.abs(myBalance)
 
-    if (myBalance < -0.01) { // I overpaid overall
-      settlementMessage = 'Te deben un Bizum de:'
-      settlementSubMessage = partnerName
-      isOwed = true
-      showSettleButton = debtAmount > 0.01
-    } else if (myBalance > 0.01) { // I underpaid overall
-      settlementMessage = 'Tienes que hacer un Bizum de:'
-      settlementSubMessage = `a ${partnerName}`
+    if (isSettled) {
+      settlementMessage = `Deuda saldada en ${settledMonthName} 🍻`
+      settlementSubMessage = ''
       isOwed = false
-      showSettleButton = debtAmount > 0.01
-    } else if (totalMonth > 0 || myTransfersSent > 0 || partnerTransfersSent > 0) {
-      settlementMessage = 'Estáis completamente en paz 🍻'
+      showSettleButton = false
+    } else {
+      if (myBalance < -0.01) { // I overpaid overall
+        settlementMessage = 'Te deben un Bizum de:'
+        settlementSubMessage = partnerName
+        isOwed = true
+        showSettleButton = debtAmount > 0.01
+      } else if (myBalance > 0.01) { // I underpaid overall
+        settlementMessage = 'Tienes que hacer un Bizum de:'
+        settlementSubMessage = `a ${partnerName}`
+        isOwed = false
+        showSettleButton = debtAmount > 0.01
+      } else if (totalMonth > 0 || currMonthDebtAmount > 0) {
+        settlementMessage = 'Estáis completamente en paz 🍻'
+      }
     }
   }
 
   const monthName = new Intl.DateTimeFormat('es-ES', { month: 'long' }).format(startOfMonth)
+
 
   return (
     <main className="w-full max-w-md mx-auto p-4 flex flex-col min-h-screen pb-24">
