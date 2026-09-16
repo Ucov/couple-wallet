@@ -121,6 +121,7 @@ export default async function RecurringExpensesPage() {
               placeholder="0.00"
               required
             />
+            <p className="text-xs text-zinc-500 mt-1">Introduce el coste TOTAL. Se dividirá automáticamente según vuestro porcentaje.</p>
           </div>
 
           <div>

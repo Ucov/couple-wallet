@@ -100,10 +100,24 @@ export async function applyRecurringExpenses(coupleId: string, month: number, ye
     return { success: true, appliedCount: 0 }
   }
 
-  // 3. Insert expenses for this month
+  // 3. Attempt to mark as applied FIRST (Race condition prevention)
+  // We assume there's a unique constraint on (couple_id, month, year) in the DB.
+  // If two requests come at the same time, the second one will fail here.
+  const { error: markError } = await supabase
+    .from('recurring_applications')
+    .insert({
+      couple_id: coupleId,
+      month,
+      year
+    })
+
+  if (markError) {
+    // Already applied or concurrent request won
+    return { success: true, appliedCount: 0 }
+  }
+
   const expensesToInsert = recurring.map(exp => {
     // Create a date for this specific month/year and the recurring day
-    // Handle edge case where day > days in month
     const date = new Date(year, month, exp.day_of_month)
     if (date.getMonth() !== month) {
         // If it rolled over to next month (e.g. Feb 30 -> Mar 2), clamp to last day of month
@@ -120,28 +134,18 @@ export async function applyRecurringExpenses(coupleId: string, month: number, ye
     }
   })
 
+  // 4. Insert expenses for this month
   const { error: insertError } = await supabase
     .from('expenses')
     .insert(expensesToInsert)
 
   if (insertError) {
     console.error('Error applying recurring expenses:', insertError)
+    // Rollback the application mark if we failed to insert expenses
+    await supabase.from('recurring_applications').delete().match({ couple_id: coupleId, month, year })
     throw new Error(insertError.message)
   }
 
-  // 4. Mark as applied
-  const { error: markError } = await supabase
-    .from('recurring_applications')
-    .insert({
-      couple_id: coupleId,
-      month,
-      year
-    })
-
-  if (markError) {
-    console.error('Error marking recurring as applied:', markError)
-    // Non-fatal, but could cause duplicates if they reload and it fails again.
-  }
 
   if (shouldRevalidate) {
     revalidatePath('/')
