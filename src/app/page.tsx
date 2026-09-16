@@ -95,7 +95,7 @@ export default async function Dashboard({
     : Promise.resolve()
 
   let allExpensesQuery = supabase.from('expenses').select(`
-      id, amount, concept, date, created_at, paid_by, category_id, is_refundable, is_transfer, categories ( name, icon, color )
+      id, amount, concept, date, created_at, paid_by, category_id, is_refundable, is_transfer, split_percentage, categories ( name, icon, color )
     `).order('date', { ascending: false }).order('created_at', { ascending: false })
 
   let prevExpensesQuery = supabase.from('expenses').select('amount').gte('date', prevMonthStart.toISOString()).lte('date', prevMonthEnd.toISOString()).eq('is_transfer', false)
@@ -230,71 +230,67 @@ export default async function Dashboard({
   let currMonthIsOwed = false
 
   if (userProfile?.couple_id) {
-    const mySplitPercentage = userProfile?.split_percentage ?? 50
-
     // Calcular balance acumulado HASTA el final del mes anterior (deuda arrastrada)
     const prevAccumExpenses = (allExpenses || []).filter((e: any) => new Date(e.date) < startOfMonth)
-    let prevMyNorm = 0, prevPartNorm = 0, prevMyRef = 0, prevPartRef = 0, prevMyTrans = 0, prevPartTrans = 0
+    let prevMyBalance = 0
+    
     prevAccumExpenses.forEach(exp => {
       const amount = Number(exp.amount)
       if (exp.is_transfer) {
-        if (exp.paid_by === user.id) prevMyTrans += amount
-        else prevPartTrans += amount
+        if (exp.paid_by === user.id) prevMyBalance -= amount
+        else prevMyBalance += amount
       } else if (exp.is_refundable) {
-        if (exp.paid_by === user.id) prevMyRef += amount
-        else prevPartRef += amount
+        if (exp.paid_by === user.id) prevMyBalance -= amount
+        else prevMyBalance += amount
       } else {
-        if (exp.paid_by === user.id) prevMyNorm += amount
-        else prevPartNorm += amount
+        const mySharePercent = exp.paid_by === user.id ? (exp.split_percentage ?? 50) : (100 - (exp.split_percentage ?? 50))
+        const myShare = amount * (mySharePercent / 100)
+        const myPaid = exp.paid_by === user.id ? amount : 0
+        prevMyBalance += (myShare - myPaid)
       }
     })
-    const prevNormalTotal = prevMyNorm + prevPartNorm
-    let prevMyBalance = (prevNormalTotal * (mySplitPercentage / 100)) - prevMyNorm
-    prevMyBalance += prevPartRef - prevMyRef - prevMyTrans + prevPartTrans
+    
     prevDebtAmount = Math.abs(prevMyBalance)
     prevIsOwed = prevMyBalance < -0.01
 
     // Calcular balance acumulado HASTA el final del mes actual (deuda total)
     const viewedExpenses = (allExpenses || []).filter((e: any) => new Date(e.date) <= endOfMonth)
-    
-    let myNorm = 0, partNorm = 0, myRef = 0, partRef = 0, myTrans = 0, partTrans = 0
+    let myBalance = 0
     viewedExpenses.forEach(exp => {
       const amount = Number(exp.amount)
       if (exp.is_transfer) {
-        if (exp.paid_by === user.id) myTrans += amount
-        else partTrans += amount
+        if (exp.paid_by === user.id) myBalance -= amount
+        else myBalance += amount
       } else if (exp.is_refundable) {
-        if (exp.paid_by === user.id) myRef += amount
-        else partRef += amount
+        if (exp.paid_by === user.id) myBalance -= amount
+        else myBalance += amount
       } else {
-        if (exp.paid_by === user.id) myNorm += amount
-        else partNorm += amount
+        const mySharePercent = exp.paid_by === user.id ? (exp.split_percentage ?? 50) : (100 - (exp.split_percentage ?? 50))
+        const myShare = amount * (mySharePercent / 100)
+        const myPaid = exp.paid_by === user.id ? amount : 0
+        myBalance += (myShare - myPaid)
       }
     })
     
-    const normalTotal = myNorm + partNorm
-    let myBalance = (normalTotal * (mySplitPercentage / 100)) - myNorm
-    myBalance += partRef - myRef - myTrans + partTrans
-    
+
     // Calcular balance SOLO del mes actual (para mostrar el desglose)
     const currentMonthExpenses = expenses
-    let currMyNorm = 0, currPartNorm = 0, currMyRef = 0, currPartRef = 0, currMyTrans = 0, currPartTrans = 0
+    let currMyBalance = 0
     currentMonthExpenses.forEach((exp: any) => {
       const amount = Number(exp.amount)
       if (exp.is_transfer) {
-        if (exp.paid_by === user.id) currMyTrans += amount
-        else currPartTrans += amount
+        if (exp.paid_by === user.id) currMyBalance -= amount
+        else currMyBalance += amount
       } else if (exp.is_refundable) {
-        if (exp.paid_by === user.id) currMyRef += amount
-        else currPartRef += amount
+        if (exp.paid_by === user.id) currMyBalance -= amount
+        else currMyBalance += amount
       } else {
-        if (exp.paid_by === user.id) currMyNorm += amount
-        else currPartNorm += amount
+        const mySharePercent = exp.paid_by === user.id ? (exp.split_percentage ?? 50) : (100 - (exp.split_percentage ?? 50))
+        const myShare = amount * (mySharePercent / 100)
+        const myPaid = exp.paid_by === user.id ? amount : 0
+        currMyBalance += (myShare - myPaid)
       }
     })
-    const currNormalTotal = currMyNorm + currPartNorm
-    let currMyBalance = (currNormalTotal * (mySplitPercentage / 100)) - currMyNorm
-    currMyBalance += currPartRef - currMyRef - currMyTrans + currPartTrans
     currMonthDebtAmount = Math.abs(currMyBalance)
     currMonthIsOwed = currMyBalance < -0.01
 
@@ -318,9 +314,10 @@ export default async function Dashboard({
           if (exp.paid_by === user.id) futureGlobalBalance -= amount
           else futureGlobalBalance += amount
         } else {
-          const myShare = amount * (mySplitPercentage / 100)
-          if (exp.paid_by === user.id) futureGlobalBalance += (myShare - amount)
-          else futureGlobalBalance += myShare
+          const mySharePercent = exp.paid_by === user.id ? (exp.split_percentage ?? 50) : (100 - (exp.split_percentage ?? 50))
+          const myShare = amount * (mySharePercent / 100)
+          const myPaid = exp.paid_by === user.id ? amount : 0
+          futureGlobalBalance += (myShare - myPaid)
         }
         
         if (Math.abs(futureGlobalBalance) < 0.5 || Math.sign(futureGlobalBalance) !== initialSign) {
