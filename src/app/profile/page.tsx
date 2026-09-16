@@ -10,6 +10,7 @@ import BackupPanel from './BackupPanel'
 import ColorSelector from './ColorSelector'
 import ThemeToggle from '@/components/ThemeToggle'
 import GenerateJoinCodeButton from '@/components/GenerateJoinCodeButton'
+import SplitPercentageManager from './SplitPercentageManager'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,9 +23,10 @@ export default async function ProfilePage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('name, couple_id')
+    .select('name, couple_id, split_percentage')
     .eq('id', user.id)
     .single()
+
     
   let joinCode = null;
   if (profile?.couple_id) {
@@ -57,6 +59,13 @@ export default async function ProfilePage() {
       </section>
 
       {profile?.couple_id && (
+        <section className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mb-6 shadow-lg">
+          <SplitPercentageManager initialPercentage={profile.split_percentage ?? 50} />
+        </section>
+      )}
+
+      {profile?.couple_id && (
+
         <PushNotificationsClient coupleId={profile.couple_id} />
       )}
 

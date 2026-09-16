@@ -70,3 +70,24 @@ export async function generateJoinCode(coupleId: string) {
   revalidatePath('/profile')
   return { success: true, code: newCode }
 }
+
+export async function updateSplitPercentage(percentage: number) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('No user')
+
+  if (percentage < 0 || percentage > 100) {
+    throw new Error('Porcentaje inválido')
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ split_percentage: percentage })
+    .eq('id', user.id)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/')
+  revalidatePath('/profile')
+  return { success: true }
+}
