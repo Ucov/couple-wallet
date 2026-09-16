@@ -20,8 +20,7 @@ export default function SplitPercentageManager({ initialPercentage }: Props) {
   const handleSave = (newPercentage: number) => {
     startTransition(async () => {
       try {
-        const res = await updateSplitPercentage(newPercentage)
-        if (res.error) throw new Error(res.error)
+        await updateSplitPercentage(newPercentage)
         toast.success('Reparto de gastos actualizado')
       } catch (error: any) {
         toast.error(error.message || 'Error al actualizar el reparto')
