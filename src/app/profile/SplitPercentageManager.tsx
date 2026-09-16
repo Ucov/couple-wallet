@@ -33,8 +33,8 @@ export default function SplitPercentageManager({ initialPercentage }: Props) {
     setPercentage(Number(e.target.value))
   }
 
-  const handleSliderCommit = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleSave(Number(e.target.value))
+  const handleSliderCommit = (e: React.MouseEvent<HTMLInputElement> | React.TouchEvent<HTMLInputElement>) => {
+    handleSave(Number(e.currentTarget.value))
   }
 
   const handleCalculate = (e: React.FormEvent) => {
