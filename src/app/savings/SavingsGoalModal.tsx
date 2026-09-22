@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { X, Plus, PiggyBank, Target } from 'lucide-react'
-import { addContribution } from './actions'
+import { useState, useTransition, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import { X, Plus, Target, Trash2 } from 'lucide-react'
+import { addContribution, deleteSavingsGoal } from './actions'
 import { toast } from 'sonner'
 import confetti from 'canvas-confetti'
 
@@ -23,8 +24,14 @@ interface Props {
 export default function SavingsGoalModal({ goal, isOpen, onClose }: Props) {
   const [amountStr, setAmountStr] = useState('')
   const [isPending, startTransition] = useTransition()
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
-  if (!isOpen) return null
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!isOpen || !mounted) return null
 
   const percentage = Math.min(100, Math.round((Number(goal.current_amount) / Number(goal.target_amount)) * 100)) || 0
 
@@ -55,8 +62,25 @@ export default function SavingsGoalModal({ goal, isOpen, onClose }: Props) {
     })
   }
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+  const handleDelete = () => {
+    if (!isConfirmingDelete) {
+      setIsConfirmingDelete(true)
+      return
+    }
+
+    startTransition(async () => {
+      const res = await deleteSavingsGoal(goal.id)
+      if (res.error) {
+        toast.error('Error al eliminar: ' + res.error)
+      } else {
+        toast.success('Hucha eliminada')
+        onClose()
+      }
+    })
+  }
+
+  const modalContent = (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
       
       <div className="relative w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -93,7 +117,7 @@ export default function SavingsGoalModal({ goal, isOpen, onClose }: Props) {
             </div>
           </div>
 
-          <div className="w-full bg-zinc-950/50 p-4 rounded-2xl border border-zinc-800/50">
+          <div className="w-full bg-zinc-950/50 p-4 rounded-2xl border border-zinc-800/50 mb-4">
             <label className="block text-xs uppercase tracking-wider text-zinc-500 font-semibold mb-2 ml-1">
               Hacer aportación
             </label>
@@ -117,8 +141,22 @@ export default function SavingsGoalModal({ goal, isOpen, onClose }: Props) {
               </button>
             </div>
           </div>
+
+          {/* Delete Button sutil */}
+          <button 
+            onClick={handleDelete}
+            disabled={isPending}
+            className={`flex items-center justify-center gap-2 text-xs font-medium px-4 py-2 rounded-full transition-colors ${
+              isConfirmingDelete ? 'text-red-400 bg-red-500/10 hover:bg-red-500/20' : 'text-zinc-600 hover:text-red-400 hover:bg-zinc-900'
+            }`}
+          >
+            <Trash2 size={14} />
+            {isConfirmingDelete ? '¿Estás seguro? Pulsa para borrar' : 'Eliminar hucha'}
+          </button>
         </div>
       </div>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }

@@ -88,3 +88,21 @@ export async function createSavingsGoal(name: string, targetAmount: number, emoj
   revalidatePath('/')
   return { success: true }
 }
+
+export async function deleteSavingsGoal(goalId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  // Check if they belong to the couple that owns the goal (handled by RLS automatically, but we can just delete)
+  const { error } = await supabase
+    .from('savings_goals')
+    .delete()
+    .eq('id', goalId)
+
+  if (error) return { error: error.message }
+  
+  revalidatePath('/')
+  return { success: true }
+}
+
