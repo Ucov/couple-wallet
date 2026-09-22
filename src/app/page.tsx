@@ -11,6 +11,8 @@ import { settleMonth } from './settlement-actions'
 import MonthNavigator from '@/components/MonthNavigator'
 import { leaveCouple } from './setup-couple/actions'
 import { getCategoryIcon } from '@/lib/utils'
+import { getSavingsGoals } from '@/app/savings/actions'
+import CompactSavingsWidget from '@/app/savings/CompactSavingsWidget'
 
 import HeroBalanceCard from '@/components/dashboard/HeroBalanceCard'
 import ExpenseAreaChart from '@/components/dashboard/ExpenseAreaChart'
@@ -112,13 +114,17 @@ export default async function Dashboard({
     { data: partnerData },
     _, // recurring
     { data: allExpenses },
-    { data: prevExpenses }
+    { data: prevExpenses },
+    savingsRes
   ] = await Promise.all([
     partnerQuery,
     applyRecurring,
     allExpensesQuery,
-    prevExpensesQuery
+    prevExpensesQuery,
+    getSavingsGoals()
   ])
+
+  const savingsGoals = savingsRes?.data || []
 
   const expenses = (allExpenses || []).filter((e: any) => {
     const d = new Date(e.date)
@@ -385,6 +391,10 @@ export default async function Dashboard({
 
       <div className="mb-4">
         <MonthNavigator currentMonth={currentMonth} currentYear={currentYear} monthName={monthName} />
+      </div>
+
+      <div className="mb-6">
+        <CompactSavingsWidget goals={savingsGoals} />
       </div>
 
       <section className="mb-6">

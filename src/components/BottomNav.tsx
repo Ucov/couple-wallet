@@ -3,11 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, CheckSquare, UserCog, Calendar, Plus, ShoppingCart, Utensils, Receipt } from 'lucide-react'
+import { Home, CheckSquare, UserCog, Calendar, Plus, ShoppingCart, Utensils, Receipt, PiggyBank } from 'lucide-react'
+import CreateGoalModal from '@/app/savings/CreateGoalModal'
 
 export default function BottomNav() {
   const pathname = usePathname()
   const [isFabOpen, setIsFabOpen] = useState(false)
+  const [isCreateGoalOpen, setIsCreateGoalOpen] = useState(false)
 
   // No mostrar la barra en pantallas de auth o setup
   if (!pathname || pathname === '/login' || pathname === '/setup-couple') {
@@ -51,7 +53,25 @@ export default function BottomNav() {
           </div>
           <span className="font-medium">Planificar menú</span>
         </Link>
+        
+        <button 
+          onClick={() => {
+            setIsFabOpen(false)
+            setIsCreateGoalOpen(true)
+          }}
+          className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 text-white px-5 py-3 rounded-2xl shadow-xl hover:bg-zinc-800 transition-colors"
+        >
+          <div className="bg-rose-500/20 text-rose-400 p-2 rounded-xl">
+            <PiggyBank size={20} />
+          </div>
+          <span className="font-medium">Nueva Hucha</span>
+        </button>
       </div>
+
+      <CreateGoalModal 
+        isOpen={isCreateGoalOpen} 
+        onClose={() => setIsCreateGoalOpen(false)} 
+      />
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-950/80 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
         <div className="max-w-md mx-auto px-6 h-16 flex items-center justify-between">
