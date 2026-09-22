@@ -7,6 +7,7 @@ import { upsertMenuMeal } from './actions'
 import { addShoppingItem } from '@/app/shopping/actions'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
+import AddIngredientsModal from './AddIngredientsModal'
 
 type MenuData = {
   date: string
@@ -17,6 +18,8 @@ type MenuData = {
 export default function WeeklyMenuClient({ initialData, coupleId, currentWeekStart }: { initialData: MenuData[], coupleId: string, currentWeekStart: Date }) {
   const [data, setData] = useState(initialData)
   const [weekStart, setWeekStart] = useState(currentWeekStart)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [activeMealForModal, setActiveMealForModal] = useState('')
   const [isPending, startTransition] = useTransition()
   const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
@@ -61,20 +64,23 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
     })
   }
 
-  const handleAddIngredient = async (meal: string) => {
-    const ingredient = window.prompt(`¿Qué ingrediente te falta para "${meal || 'esta comida'}"?`)
-    if (!ingredient || !ingredient.trim()) return
+  const handleOpenIngredientsModal = (meal: string) => {
+    setActiveMealForModal(meal)
+    setIsModalOpen(true)
+  }
 
-    const fd = new FormData()
-    fd.append('name', ingredient.trim())
-    
+  const handleSaveIngredients = (ingredients: string[]) => {
+    setIsModalOpen(false)
     startTransition(async () => {
-      const res = await addShoppingItem(fd)
-      if (res?.error) {
-        toast.error('Error: ' + res.error)
-      } else {
-        toast.success(`"${ingredient}" añadido a la lista`)
-        // Trigger shopping list sync too if we want, but it will sync on load.
+      let successCount = 0
+      for (const ing of ingredients) {
+        const fd = new FormData()
+        fd.append('name', ing)
+        const res = await addShoppingItem(fd)
+        if (!res?.error) successCount++
+      }
+      if (successCount > 0) {
+        toast.success(`${successCount} ingrediente(s) añadido(s) a la compra`)
       }
     })
   }
@@ -162,7 +168,7 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
                   />
                   {(dayData.lunch || '').trim().length > 0 && (
                     <button 
-                      onClick={() => handleAddIngredient(dayData.lunch || '')}
+                      onClick={() => handleOpenIngredientsModal(dayData.lunch || '')}
                       className="px-4 py-3 text-zinc-500 hover:text-emerald-400 transition-colors"
                       title="Añadir a lista de la compra"
                     >
@@ -185,7 +191,7 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
                   />
                   {(dayData.dinner || '').trim().length > 0 && (
                     <button 
-                      onClick={() => handleAddIngredient(dayData.dinner || '')}
+                      onClick={() => handleOpenIngredientsModal(dayData.dinner || '')}
                       className="px-4 py-3 text-zinc-500 hover:text-emerald-400 transition-colors"
                       title="Añadir a lista de la compra"
                     >
@@ -198,6 +204,13 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
           )
         })}
       </div>
+
+      <AddIngredientsModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleSaveIngredients}
+        mealName={activeMealForModal}
+      />
     </div>
   )
 }
