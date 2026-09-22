@@ -59,7 +59,9 @@ export default function ShoppingListClient({ initialItems, coupleId }: { initial
   }
 
   const pendingItems = items.filter(item => item.status === 'pending')
-  const boughtItems = items.filter(item => item.status === 'bought')
+  const boughtItems = items.filter(item => item.status === 'bought').sort((a, b) => 
+    a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })
+  )
 
   return (
     <>
