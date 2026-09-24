@@ -10,22 +10,62 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 // Helper to determine brand colors/logos based on concept name
-const getBrandStyle = (concept: string) => {
+const getBrandInfo = (concept: string) => {
   const name = concept.toLowerCase()
-  if (name.includes('netflix')) return { bg: 'bg-red-600', text: 'text-white', letter: 'N' }
-  if (name.includes('spotify')) return { bg: 'bg-[#1DB954]', text: 'text-white', letter: 'S' }
-  if (name.includes('amazon') || name.includes('prime')) return { bg: 'bg-[#00A8E1]', text: 'text-white', letter: 'a' }
-  if (name.includes('hbo') || name.includes('max')) return { bg: 'bg-[#5A2E81]', text: 'text-white', letter: 'M' }
-  if (name.includes('disney')) return { bg: 'bg-[#113CCF]', text: 'text-white', letter: 'D+' }
-  if (name.includes('apple')) return { bg: 'bg-zinc-100', text: 'text-black', letter: '' }
-  if (name.includes('gimnasio') || name.includes('gym')) return { bg: 'bg-orange-500', text: 'text-white', letter: '🏋️' }
-  if (name.includes('alquiler') || name.includes('hipoteca')) return { bg: 'bg-blue-600', text: 'text-white', letter: '🏠' }
-  if (name.includes('internet') || name.includes('fibra') || name.includes('movil')) return { bg: 'bg-teal-500', text: 'text-white', letter: '🌐' }
-  if (name.includes('luz') || name.includes('electricidad')) return { bg: 'bg-yellow-500', text: 'text-white', letter: '⚡' }
-  if (name.includes('agua')) return { bg: 'bg-cyan-500', text: 'text-white', letter: '💧' }
+  let domain = ''
   
-  // Default fallback using first letter
-  return { bg: 'bg-zinc-800', text: 'text-white', letter: concept.charAt(0).toUpperCase() }
+  // Streaming & Entertainment
+  if (name.includes('netflix')) domain = 'netflix.com'
+  else if (name.includes('spotify')) domain = 'spotify.com'
+  else if (name.includes('amazon') || name.includes('prime')) domain = 'amazon.es'
+  else if (name.includes('hbo') || name.includes('max')) domain = 'max.com'
+  else if (name.includes('disney')) domain = 'disneyplus.com'
+  else if (name.includes('apple')) domain = 'apple.com'
+  else if (name.includes('dazn')) domain = 'dazn.com'
+  else if (name.includes('youtube')) domain = 'youtube.com'
+  else if (name.includes('twitch')) domain = 'twitch.tv'
+  
+  // Gaming
+  else if (name.includes('playstation') || name.includes('psn')) domain = 'playstation.com'
+  else if (name.includes('xbox')) domain = 'xbox.com'
+  else if (name.includes('nintendo')) domain = 'nintendo.com'
+  
+  // Utilities & Services
+  else if (name.includes('gym') || name.includes('gimnasio') || name.includes('mcfit') || name.includes('synergym') || name.includes('basicfit')) {
+    if (name.includes('mcfit')) domain = 'mcfit.com'
+    else if (name.includes('synergym')) domain = 'synergym.es'
+    else if (name.includes('basicfit') || name.includes('basic fit')) domain = 'basic-fit.com'
+    else return { letter: '🏋️', bg: 'bg-orange-500' }
+  }
+  else if (name.includes('alquiler') || name.includes('hipoteca')) return { letter: '🏠', bg: 'bg-blue-600' }
+  else if (name.includes('internet') || name.includes('fibra') || name.includes('movil') || name.includes('vodafone') || name.includes('movistar') || name.includes('orange') || name.includes('digi')) {
+    if (name.includes('vodafone')) domain = 'vodafone.es'
+    else if (name.includes('movistar')) domain = 'movistar.es'
+    else if (name.includes('orange')) domain = 'orange.es'
+    else if (name.includes('digi')) domain = 'digimobil.es'
+    else return { letter: '🌐', bg: 'bg-teal-500' }
+  }
+  else if (name.includes('luz') || name.includes('electricidad') || name.includes('endesa') || name.includes('iberdrola') || name.includes('repsol') || name.includes('naturgy')) {
+    if (name.includes('endesa')) domain = 'endesa.com'
+    else if (name.includes('iberdrola')) domain = 'iberdrola.es'
+    else if (name.includes('repsol')) domain = 'repsol.es'
+    else if (name.includes('naturgy')) domain = 'naturgy.es'
+    else return { letter: '⚡', bg: 'bg-yellow-500' }
+  }
+  else if (name.includes('agua')) return { letter: '💧', bg: 'bg-cyan-500' }
+  else if (name.includes('seguro')) {
+    if (name.includes('mapfre')) domain = 'mapfre.es'
+    else if (name.includes('mutua')) domain = 'mutuamadrilena.es'
+    else if (name.includes('allianz')) domain = 'allianz.es'
+    else return { letter: '🛡️', bg: 'bg-indigo-500' }
+  }
+  
+  if (domain) {
+    return { logoUrl: `https://www.google.com/s2/favicons?domain=${domain}&sz=128`, bg: 'bg-white' }
+  }
+  
+  // Default fallback
+  return { letter: concept.charAt(0).toUpperCase(), bg: 'bg-zinc-800', text: 'text-white' }
 }
 
 export default async function RecurringExpensesPage() {
@@ -125,15 +165,20 @@ export default async function RecurringExpensesPage() {
         {timelineExpenses.length > 0 ? (
           <div className="space-y-3 relative before:absolute before:inset-0 before:ml-[23px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-zinc-800 before:to-transparent">
             {timelineExpenses.map((expense) => {
-              const brand = getBrandStyle(expense.concept)
+              const brand = getBrandInfo(expense.concept)
               const isNext = expense.id === timelineExpenses[0].id // El primer cobro más inminente
               
               return (
                 <div key={expense.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
                   
                   {/* Dot en el timeline */}
-                  <div className={`flex items-center justify-center w-12 h-12 rounded-full border-4 border-zinc-950 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm ${brand.bg} ${brand.text} font-black text-xl z-10 ${isNext ? 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-zinc-950 scale-110' : ''}`}>
-                    {brand.letter}
+                  <div className={`flex items-center justify-center w-12 h-12 rounded-full border-4 border-zinc-950 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm ${brand.bg} ${brand.text || ''} font-black text-xl z-10 overflow-hidden ${isNext ? 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-zinc-950 scale-110' : ''}`}>
+                    {brand.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={brand.logoUrl} alt={expense.concept} className="w-full h-full object-cover p-1.5" />
+                    ) : (
+                      brand.letter
+                    )}
                   </div>
                   
                   {/* Card */}
