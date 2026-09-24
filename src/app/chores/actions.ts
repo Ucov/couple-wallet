@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { sendPushToPartner } from '@/utils/webPush'
 
-export async function addChore(title: string) {
+export async function addChore(title: string, points: number = 10) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -21,7 +21,7 @@ export async function addChore(title: string) {
 
     const { error } = await supabase
       .from('chores')
-      .insert([{ couple_id: coupleId, title }])
+      .insert([{ couple_id: coupleId, title, points }])
 
     if (error) {
       console.error(error)
@@ -46,7 +46,8 @@ export async function toggleChoreStatus(id: string, isDone: boolean) {
       .from('chores')
       .update({ 
         is_done: isDone,
-        completed_at: isDone ? new Date().toISOString() : null
+        completed_at: isDone ? new Date().toISOString() : null,
+        completed_by: isDone ? user.id : null
       })
       .eq('id', id)
     if (error) return { error: error.message }
