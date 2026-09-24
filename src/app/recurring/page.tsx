@@ -1,12 +1,32 @@
 import { createClient } from '@/utils/supabase/server'
 import { addRecurringExpense } from '../recurring-actions'
 import Link from 'next/link'
-import { ArrowLeft, Repeat } from 'lucide-react'
+import { ArrowLeft, Repeat, CalendarDays, Wallet, Plus } from 'lucide-react'
 import { redirect } from 'next/navigation'
 import DeleteRecurringButton from '@/components/DeleteRecurringButton'
+import { getCategoryIcon } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
+
+// Helper to determine brand colors/logos based on concept name
+const getBrandStyle = (concept: string) => {
+  const name = concept.toLowerCase()
+  if (name.includes('netflix')) return { bg: 'bg-red-600', text: 'text-white', letter: 'N' }
+  if (name.includes('spotify')) return { bg: 'bg-[#1DB954]', text: 'text-white', letter: 'S' }
+  if (name.includes('amazon') || name.includes('prime')) return { bg: 'bg-[#00A8E1]', text: 'text-white', letter: 'a' }
+  if (name.includes('hbo') || name.includes('max')) return { bg: 'bg-[#5A2E81]', text: 'text-white', letter: 'M' }
+  if (name.includes('disney')) return { bg: 'bg-[#113CCF]', text: 'text-white', letter: 'D+' }
+  if (name.includes('apple')) return { bg: 'bg-zinc-100', text: 'text-black', letter: '' }
+  if (name.includes('gimnasio') || name.includes('gym')) return { bg: 'bg-orange-500', text: 'text-white', letter: '🏋️' }
+  if (name.includes('alquiler') || name.includes('hipoteca')) return { bg: 'bg-blue-600', text: 'text-white', letter: '🏠' }
+  if (name.includes('internet') || name.includes('fibra') || name.includes('movil')) return { bg: 'bg-teal-500', text: 'text-white', letter: '🌐' }
+  if (name.includes('luz') || name.includes('electricidad')) return { bg: 'bg-yellow-500', text: 'text-white', letter: '⚡' }
+  if (name.includes('agua')) return { bg: 'bg-cyan-500', text: 'text-white', letter: '💧' }
+  
+  // Default fallback using first letter
+  return { bg: 'bg-zinc-800', text: 'text-white', letter: concept.charAt(0).toUpperCase() }
+}
 
 export default async function RecurringExpensesPage() {
   const supabase = await createClient()
@@ -25,8 +45,8 @@ export default async function RecurringExpensesPage() {
   if (!userProfile?.couple_id) {
     return (
       <main className="w-full max-w-md mx-auto p-4 flex flex-col min-h-screen justify-center items-center text-center">
-        <h1 className="text-xl font-bold mb-4">Gastos Fijos</h1>
-        <p className="text-zinc-400 mb-6">Necesitas configurar una pareja para añadir gastos fijos.</p>
+        <h1 className="text-xl font-bold mb-4">Suscripciones</h1>
+        <p className="text-zinc-400 mb-6">Necesitas configurar una pareja para añadir suscripciones.</p>
         <Link href="/" className="bg-emerald-600 px-6 py-3 rounded-xl font-semibold">Volver al inicio</Link>
       </main>
     )
@@ -47,126 +67,175 @@ export default async function RecurringExpensesPage() {
     .eq('couple_id', userProfile.couple_id)
     .order('day_of_month', { ascending: true })
 
+  // Cálculos del Dashboard
+  const expenses = recurringExpenses || []
+  const totalMonthly = expenses.reduce((acc, curr) => acc + Number(curr.amount), 0)
+  const totalYearly = totalMonthly * 12
+
+  // Ordenar por el próximo cobro
+  const today = new Date().getDate()
+  
+  // Separar en "Próximos este mes" y "El mes que viene"
+  const upcomingThisMonth = expenses.filter(e => e.day_of_month >= today).sort((a, b) => a.day_of_month - b.day_of_month)
+  const nextMonth = expenses.filter(e => e.day_of_month < today).sort((a, b) => a.day_of_month - b.day_of_month)
+  
+  const timelineExpenses = [...upcomingThisMonth, ...nextMonth]
+
   return (
-    <main className="w-full max-w-md mx-auto p-4 flex flex-col min-h-screen">
+    <main className="w-full max-w-md mx-auto p-4 flex flex-col min-h-screen pb-24">
       <header className="flex items-center py-6 mb-2">
-        <Link href="/" className="text-zinc-400 hover:text-white mr-4">
+        <Link href="/" className="text-zinc-400 hover:text-white mr-4 transition-colors">
           <ArrowLeft size={24} />
         </Link>
-        <h1 className="text-xl font-bold flex items-center gap-2">
-          <Repeat size={20} className="text-emerald-500" />
-          Gastos Fijos
+        <h1 className="text-xl font-bold flex items-center gap-2 text-white tracking-tight">
+          Suscripciones y Fijos
         </h1>
       </header>
 
-      <p className="text-sm text-zinc-400 mb-6">
-        Estos gastos se añadirán automáticamente cada mes el día que especifiques.
-      </p>
-
-      {/* Lista de Gastos Fijos Existentes */}
+      {/* Dashboard Anual / Mensual */}
       <section className="mb-8">
-        <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-3">Tus Gastos Fijos</h2>
-        {recurringExpenses && recurringExpenses.length > 0 ? (
-          <div className="space-y-3">
-            {recurringExpenses.map((expense) => {
-              const category = Array.isArray(expense.categories) ? expense.categories[0] : expense.categories
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-zinc-900/60 border border-zinc-800/80 p-4 rounded-3xl flex flex-col items-center justify-center text-center shadow-lg backdrop-blur-sm relative overflow-hidden">
+            <div className="absolute top-0 w-full h-1 bg-emerald-500 opacity-50" />
+            <span className="text-xs uppercase tracking-widest text-zinc-500 font-bold mb-1">Total Mensual</span>
+            <div className="flex items-end gap-1">
+              <span className="text-3xl font-black text-white">{totalMonthly.toFixed(2)}</span>
+              <span className="text-sm font-medium text-zinc-500 mb-1">€</span>
+            </div>
+          </div>
+
+          <div className="bg-zinc-900/60 border border-zinc-800/80 p-4 rounded-3xl flex flex-col items-center justify-center text-center shadow-lg backdrop-blur-sm relative overflow-hidden group">
+            <div className="absolute top-0 w-full h-1 bg-rose-500 opacity-50" />
+            <span className="text-xs uppercase tracking-widest text-zinc-500 font-bold mb-1">Impacto Anual</span>
+            <div className="flex items-end gap-1 group-hover:scale-105 transition-transform">
+              <span className="text-3xl font-black text-rose-400">{totalYearly.toFixed(2)}</span>
+              <span className="text-sm font-medium text-rose-500/50 mb-1">€</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Timeline de Suscripciones */}
+      <section className="mb-10 flex-1">
+        <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 px-1 flex items-center justify-between">
+          <span>Tus suscripciones</span>
+          <span className="bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded-full">{expenses.length}</span>
+        </h2>
+        
+        {timelineExpenses.length > 0 ? (
+          <div className="space-y-3 relative before:absolute before:inset-0 before:ml-[23px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-zinc-800 before:to-transparent">
+            {timelineExpenses.map((expense) => {
+              const brand = getBrandStyle(expense.concept)
+              const isNext = expense.id === timelineExpenses[0].id // El primer cobro más inminente
+              
               return (
-                <div key={expense.id} className="bg-zinc-900/50 p-4 rounded-xl flex justify-between items-center border border-zinc-800/50">
-                  <div className="flex gap-3 items-center">
-                    <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-xl">
-                      {category?.icon || '📅'}
-                    </div>
-                    <div>
-                      <p className="font-medium text-zinc-200">{expense.concept}</p>
-                      <p className="text-xs text-zinc-500 mt-0.5">
-                        Día {expense.day_of_month} • {category?.name || 'General'}
-                      </p>
-                    </div>
+                <div key={expense.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                  
+                  {/* Dot en el timeline */}
+                  <div className={`flex items-center justify-center w-12 h-12 rounded-full border-4 border-zinc-950 shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm ${brand.bg} ${brand.text} font-black text-xl z-10 ${isNext ? 'ring-2 ring-emerald-500 ring-offset-2 ring-offset-zinc-950 scale-110' : ''}`}>
+                    {brand.letter}
                   </div>
-                  <div className="text-right flex items-center gap-2">
-                    <div className="mr-2">
-                      <p className="font-bold text-zinc-100">€{Number(expense.amount).toFixed(2)}</p>
-                      <p className="text-xs text-zinc-400 mt-0.5">
-                        {expense.paid_by === user.id ? 'Tú' : 'Pareja'}
-                      </p>
+                  
+                  {/* Card */}
+                  <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-3xl bg-zinc-900 border border-zinc-800/50 shadow-md">
+                    <div className="flex justify-between items-start mb-1">
+                      <div>
+                        <h3 className="font-bold text-zinc-100">{expense.concept}</h3>
+                        <p className="text-xs text-zinc-500 font-medium flex items-center gap-1 mt-0.5">
+                          <CalendarDays size={12} />
+                          Día {expense.day_of_month} {expense.day_of_month < today ? '(Próx. mes)' : ''}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="block font-black text-lg text-emerald-400">€{Number(expense.amount).toFixed(2)}</span>
+                      </div>
                     </div>
-                    <DeleteRecurringButton
-                      id={expense.id}
-                      concept={expense.concept}
-                      amount={Number(expense.amount)}
-                    />
+                    
+                    <div className="flex justify-between items-center mt-3 pt-3 border-t border-zinc-800/50">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 bg-zinc-800/50 px-2 py-1 rounded-md">
+                        Paga: {expense.paid_by === user.id ? 'Tú' : 'Pareja'}
+                      </span>
+                      <DeleteRecurringButton
+                        id={expense.id}
+                        concept={expense.concept}
+                        amount={Number(expense.amount)}
+                      />
+                    </div>
                   </div>
                 </div>
               )
             })}
           </div>
         ) : (
-          <div className="text-center py-6 border-2 border-dashed border-zinc-800 rounded-xl">
-            <p className="text-zinc-500 text-sm">No tienes gastos fijos configurados.</p>
+          <div className="flex flex-col items-center justify-center py-12 text-center bg-zinc-900/20 border-2 border-dashed border-zinc-800/50 rounded-3xl">
+            <div className="w-14 h-14 bg-zinc-800 text-zinc-500 rounded-full flex items-center justify-center mb-3">
+              <Wallet size={28} />
+            </div>
+            <p className="text-zinc-400 font-medium">Sin suscripciones</p>
+            <p className="text-sm text-zinc-600 mt-1">Añade la primera abajo.</p>
           </div>
         )}
       </section>
 
       {/* Formulario para añadir */}
-      <section>
-        <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider mb-4">Añadir Nuevo</h2>
-        <form action={addRecurringExpense} className="flex flex-col gap-5 bg-zinc-900 p-5 rounded-2xl border border-zinc-800">
-          <div>
-            <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Cantidad (€)</label>
-            <input
-              type="number"
-              step="0.01"
-              name="amount"
-              className="w-full text-2xl bg-transparent border-b border-zinc-700 focus:border-emerald-500 pb-1 outline-none text-white placeholder-zinc-700"
-              placeholder="0.00"
-              required
-            />
-            <p className="text-xs text-zinc-500 mt-1">Introduce el coste TOTAL. Se dividirá automáticamente según vuestro porcentaje.</p>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Concepto</label>
-            <input
-              type="text"
-              name="concept"
-              className="w-full bg-zinc-950 rounded-lg px-3 py-2.5 text-sm text-white border border-zinc-800 focus:border-emerald-500 outline-none"
-              placeholder="Ej. Alquiler, Internet..."
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-zinc-400 mb-1.5">Día del mes (1-31)</label>
-            <input
-              type="number"
-              min="1"
-              max="31"
-              name="day_of_month"
-              defaultValue="1"
-              className="w-full bg-zinc-950 rounded-lg px-3 py-2.5 text-sm text-white border border-zinc-800 focus:border-emerald-500 outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-zinc-400 mb-2">Categoría</label>
-            <div className="grid grid-cols-2 gap-2">
-              {categories?.map((cat) => (
-                <label key={cat.id} className="cursor-pointer">
-                  <input type="radio" name="category_id" value={cat.id} className="peer sr-only" required />
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-950 px-2 py-2 text-center text-xs peer-checked:bg-emerald-600/20 peer-checked:border-emerald-500 peer-checked:text-emerald-400 transition-colors">
-                    {cat.name}
-                  </div>
-                </label>
-              ))}
+      <section className="mt-8 bg-zinc-900/40 p-5 rounded-3xl border border-zinc-800/50">
+        <h2 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+          <Plus size={16} /> Añadir Suscripción
+        </h2>
+        
+        <form action={addRecurringExpense} className="flex flex-col gap-4">
+          
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5 ml-1">Concepto</label>
+              <input
+                type="text"
+                name="concept"
+                className="w-full bg-zinc-950 rounded-2xl px-4 py-3.5 text-sm text-white border border-zinc-800 focus:border-emerald-500 outline-none transition-colors placeholder:text-zinc-600 font-medium"
+                placeholder="Ej. Netflix, Gimnasio..."
+                required
+              />
             </div>
+            <div className="w-28">
+              <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5 ml-1">Día (1-31)</label>
+              <input
+                type="number"
+                min="1"
+                max="31"
+                name="day_of_month"
+                defaultValue="1"
+                className="w-full bg-zinc-950 rounded-2xl px-4 py-3.5 text-sm text-white border border-zinc-800 focus:border-emerald-500 outline-none text-center font-bold"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1.5 ml-1">Cantidad Mensual Total (€)</label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-medium">€</span>
+              <input
+                type="number"
+                step="0.01"
+                name="amount"
+                className="w-full bg-zinc-950 rounded-2xl pl-9 pr-4 py-3.5 text-lg text-white border border-zinc-800 focus:border-emerald-500 outline-none transition-colors font-black placeholder:text-zinc-700"
+                placeholder="0.00"
+                required
+              />
+            </div>
+            <p className="text-[10px] text-zinc-500 mt-1.5 ml-1 font-medium">Introduce el coste total. Se dividirá automáticamente.</p>
+          </div>
+
+          {/* Categoría Oculta / Por defecto (ya no es tan relevante visualmente pero la DB lo pide) */}
+          <div className="hidden">
+            <input type="radio" name="category_id" value={categories?.[0]?.id || ''} checked readOnly />
           </div>
 
           <button
             type="submit"
-            className="mt-2 w-full bg-zinc-100 hover:bg-white text-zinc-900 rounded-lg py-3 font-bold text-sm transition-transform active:scale-95"
+            className="mt-2 w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 rounded-2xl py-4 font-black transition-transform active:scale-[0.98] flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(16,185,129,0.2)]"
           >
-            Añadir Gasto Fijo
+            Guardar Suscripción
           </button>
         </form>
       </section>
