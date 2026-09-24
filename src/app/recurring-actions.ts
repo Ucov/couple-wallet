@@ -24,9 +24,25 @@ export async function addRecurringExpense(formData: FormData) {
   const concept = formData.get('concept') as string
   const category_id = formData.get('category_id') as string
   const day_of_month = parseInt(formData.get('day_of_month') as string, 10)
+  const paid_by_me = formData.get('paid_by_me') as string
 
   if (!amount || !concept || !day_of_month) {
     return
+  }
+
+  let finalPaidBy = user.id
+
+  if (paid_by_me === 'false') {
+    const { data: partnerProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('couple_id', profile.couple_id)
+      .neq('id', user.id)
+      .maybeSingle()
+      
+    if (partnerProfile) {
+      finalPaidBy = partnerProfile.id
+    }
   }
 
   const { error } = await supabase
@@ -35,7 +51,7 @@ export async function addRecurringExpense(formData: FormData) {
       amount,
       concept,
       category_id: category_id || null,
-      paid_by: user.id,
+      paid_by: finalPaidBy,
       couple_id: profile.couple_id,
       day_of_month
     })

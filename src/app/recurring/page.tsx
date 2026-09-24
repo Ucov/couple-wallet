@@ -271,9 +271,27 @@ export default async function RecurringExpensesPage() {
             <p className="text-[10px] text-zinc-500 mt-1.5 ml-1 font-medium">Introduce el coste total. Se dividirá automáticamente.</p>
           </div>
 
-          {/* Categoría Oculta / Por defecto (ya no es tan relevante visualmente pero la DB lo pide) */}
+          {/* Categoría Oculta */}
           <div className="hidden">
             <input type="radio" name="category_id" value={categories?.[0]?.id || ''} checked readOnly />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2 ml-1">¿Quién lo paga?</label>
+            <div className="flex bg-zinc-950 p-1 rounded-2xl border border-zinc-800">
+              <label className="flex-1 cursor-pointer">
+                <input type="radio" name="paid_by_me" value="true" className="peer sr-only" defaultChecked />
+                <div className="text-center py-2.5 text-sm font-semibold rounded-xl text-zinc-500 peer-checked:bg-emerald-500/20 peer-checked:text-emerald-400 transition-all">
+                  Yo
+                </div>
+              </label>
+              <label className="flex-1 cursor-pointer">
+                <input type="radio" name="paid_by_me" value="false" className="peer sr-only" />
+                <div className="text-center py-2.5 text-sm font-semibold rounded-xl text-zinc-500 peer-checked:bg-emerald-500/20 peer-checked:text-emerald-400 transition-all">
+                  Mi Pareja
+                </div>
+              </label>
+            </div>
           </div>
 
           <button
