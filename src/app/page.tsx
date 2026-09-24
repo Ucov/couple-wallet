@@ -378,7 +378,7 @@ export default async function Dashboard({
           </div>
         </div>
         <div className="flex items-center gap-3 bg-zinc-900/50 p-1.5 rounded-full border border-zinc-800">
-          <Link href="/recurring" className="p-2 rounded-full text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 transition-all" title="Gastos Fijos">
+          <Link href="/recurring" className="p-2 rounded-full text-zinc-400 hover:text-emerald-400 hover:bg-zinc-800 transition-all" title="Suscripciones">
             <Repeat size={18} />
           </Link>
           <form action={logout}>
