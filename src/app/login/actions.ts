@@ -2,20 +2,24 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/utils/supabase/server'
+import { getServerPB } from '@/lib/pocketbase'
+import { cookies } from 'next/headers'
 
 export async function login(formData: FormData) {
-  const supabase = await createClient()
+  const pb = getServerPB()
   
   const email = formData.get('email') as string
   const password = formData.get('password') as string
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
-
-  if (error) {
+  try {
+    await pb.collection('users').authWithPassword(email, password)
+    
+    // Save to cookies
+    const isProd = process.env.NODE_ENV === 'production'
+    const cookieStore = await cookies()
+    cookieStore.set('pb_auth', pb.authStore.exportToCookie({ secure: isProd, httpOnly: true }))
+    
+  } catch (error) {
     redirect('/login?message=Could not authenticate user')
   }
 
@@ -24,18 +28,29 @@ export async function login(formData: FormData) {
 }
 
 export async function signup(formData: FormData) {
-  const supabase = await createClient()
+  const pb = getServerPB()
 
   const email = formData.get('email') as string
   const password = formData.get('password') as string
 
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-  })
+  try {
+    // PocketBase standard signup fields usually require passwordConfirm
+    await pb.collection('users').create({
+      email,
+      password,
+      passwordConfirm: password, 
+    })
+    
+    // Auto login after signup
+    await pb.collection('users').authWithPassword(email, password)
+    
+    // Save to cookies
+    const isProd = process.env.NODE_ENV === 'production'
+    const cookieStore = await cookies()
+    cookieStore.set('pb_auth', pb.authStore.exportToCookie({ secure: isProd, httpOnly: true }))
 
-  if (error) {
-    redirect(`/login?message=${encodeURIComponent(error.message)}`)
+  } catch (error: any) {
+    redirect(`/login?message=${encodeURIComponent(error.message || 'Error signing up')}`)
   }
 
   revalidatePath('/', 'layout')
@@ -43,7 +58,7 @@ export async function signup(formData: FormData) {
 }
 
 export async function logout() {
-  const supabase = await createClient()
-  await supabase.auth.signOut()
+  const cookieStore = await cookies()
+  cookieStore.delete('pb_auth')
   redirect('/login')
 }
