@@ -109,15 +109,15 @@ export default async function RecurringExpensesPage() {
 
   // Cálculos del Dashboard
   const expenses = recurringExpenses || []
-  const totalMonthly = expenses.reduce((acc, curr) => acc + Number(curr.amount), 0)
+  const totalMonthly = expenses.reduce((acc: any, curr: any) => acc + Number(curr.amount), 0)
   const totalYearly = totalMonthly * 12
 
   // Ordenar por el próximo cobro
   const today = new Date().getDate()
   
   // Separar en "Próximos este mes" y "El mes que viene"
-  const upcomingThisMonth = expenses.filter(e => e.day_of_month >= today).sort((a, b) => a.day_of_month - b.day_of_month)
-  const nextMonth = expenses.filter(e => e.day_of_month < today).sort((a, b) => a.day_of_month - b.day_of_month)
+  const upcomingThisMonth = expenses.filter((e: any) => e.day_of_month >= today).sort((a: any, b: any) => a.day_of_month - b.day_of_month)
+  const nextMonth = expenses.filter((e: any) => e.day_of_month < today).sort((a: any, b: any) => a.day_of_month - b.day_of_month)
   
   const timelineExpenses = [...upcomingThisMonth, ...nextMonth]
 

@@ -96,6 +96,7 @@ export default function ChoresClient({ initialChores, coupleId, currentUserId, c
     startTransition(async () => { 
       await addChore(tempTitle, tempPoints) 
       broadcastSync()
+      router.refresh()
     })
   }
 
@@ -107,7 +108,6 @@ export default function ChoresClient({ initialChores, coupleId, currentUserId, c
       completed_at: !currentStatus ? new Date().toISOString() : null
     } : c))
     
-    // Animación chula si se completa
     if (!currentStatus) {
       confetti({
         particleCount: chorePoints,
@@ -120,7 +120,10 @@ export default function ChoresClient({ initialChores, coupleId, currentUserId, c
     startTransition(async () => { 
       const res = await toggleChoreStatus(id, !currentStatus)
       if (res?.error) alert('Error: ' + res.error)
-      else broadcastSync()
+      else {
+        broadcastSync()
+        router.refresh()
+      }
     })
   }
 
@@ -130,7 +133,10 @@ export default function ChoresClient({ initialChores, coupleId, currentUserId, c
     startTransition(async () => { 
       const res = await deleteChore(id)
       if (res?.error) alert('Error: ' + res.error)
-      else broadcastSync()
+      else {
+        broadcastSync()
+        router.refresh()
+      }
     })
   }
 

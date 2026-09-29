@@ -1,69 +1,61 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
+import { getServerPB } from '@/lib/pocketbase-server'
 import { revalidatePath } from 'next/cache'
 
 export async function getWeeklyMenu(startDate: string, endDate: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const pb = await getServerPB()
+  const user = pb.authStore.model
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('couple_id')
-    .eq('id', user.id)
-    .single()
+  let profile
+  try {
+    profile = await pb.collection('users').getFirstListItem(`id="${user.id}"`)
+  } catch(e) {}
 
   if (!profile?.couple_id) return { error: 'No couple found' }
 
-  const { data, error } = await supabase
-    .from('weekly_menu')
-    .select('*')
-    .eq('couple_id', profile.couple_id)
-    .gte('date', startDate)
-    .lte('date', endDate)
-    .order('date', { ascending: true })
-
-  if (error) return { error: error.message }
-  return { success: true, data, coupleId: profile.couple_id }
+  try {
+    const data = await pb.collection('weekly_menu').getFullList({
+      filter: `couple_id="${profile.couple_id}" && date>="${startDate}" && date<="${endDate}"`,
+      sort: 'date'
+    })
+    return { success: true, data, coupleId: profile.couple_id }
+  } catch (error: any) {
+    return { error: error.message }
+  }
 }
 
 export async function upsertMenuMeal(date: string, type: 'lunch' | 'dinner', text: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const pb = await getServerPB()
+  const user = pb.authStore.model
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('couple_id')
-    .eq('id', user.id)
-    .single()
+  let profile
+  try {
+    profile = await pb.collection('users').getFirstListItem(`id="${user.id}"`)
+  } catch(e) {}
 
   if (!profile?.couple_id) return { error: 'No couple found' }
 
   // Check if exists
-  const { data: existing } = await supabase
-    .from('weekly_menu')
-    .select('id')
-    .eq('couple_id', profile.couple_id)
-    .eq('date', date)
-    .maybeSingle()
+  let existing
+  try {
+    existing = await pb.collection('weekly_menu').getFirstListItem(`couple_id="${profile.couple_id}" && date="${date}"`)
+  } catch(e) {}
 
-  if (existing) {
-    const { error } = await supabase
-      .from('weekly_menu')
-      .update({ [type]: text, updated_at: new Date().toISOString() })
-      .eq('id', existing.id)
-    if (error) return { error: error.message }
-  } else {
-    const { error } = await supabase
-      .from('weekly_menu')
-      .insert({
+  try {
+    if (existing) {
+      await pb.collection('weekly_menu').update(existing.id, { [type]: text })
+    } else {
+      await pb.collection('weekly_menu').create({
         couple_id: profile.couple_id,
         date,
         [type]: text
       })
-    if (error) return { error: error.message }
+    }
+  } catch (error: any) {
+    return { error: error.message }
   }
 
   revalidatePath('/menu')

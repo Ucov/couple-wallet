@@ -1,57 +1,44 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
+import { getServerPB } from '@/lib/pocketbase-server'
 import { revalidatePath } from 'next/cache'
 import { sendPushToPartner } from '@/utils/webPush'
 
 export async function addCalendarEvent(coupleId: string, title: string, dateIso: string) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const pb = await getServerPB()
+    const user = pb.authStore.model
     if (!user) return { error: 'No autorizado' }
 
-    const { error } = await supabase
-      .from('calendar_events')
-      .insert([{ 
+    await pb.collection('calendar_events').create({ 
         couple_id: coupleId, 
         title, 
         date: dateIso, 
         created_by: user.id 
-      }])
-
-    if (error) {
-      console.error('Error addCalendarEvent:', error)
-      return { error: 'No se pudo añadir el evento' }
-    }
+    })
     
-    sendPushToPartner(coupleId, user.id, '📅 Nuevo evento en agenda', `${user.user_metadata?.name || 'Tu pareja'} ha añadido: ${title}`, '/calendar')
+    sendPushToPartner(coupleId, user.id, '📅 Nuevo evento en agenda', `${user.name || 'Tu pareja'} ha añadido: ${title}`, '/calendar')
 
     revalidatePath('/calendar')
     return { success: true }
   } catch (err: any) {
+    console.error('Error addCalendarEvent:', err)
     return { error: err.message || String(err) }
   }
 }
 
 export async function deleteCalendarEvent(id: string) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const pb = await getServerPB()
+    const user = pb.authStore.model
     if (!user) return { error: 'No autorizado' }
 
-    const { error } = await supabase
-      .from('calendar_events')
-      .delete()
-      .eq('id', id)
-
-    if (error) {
-      console.error('Error deleteCalendarEvent:', error)
-      return { error: 'No se pudo borrar el evento' }
-    }
+    await pb.collection('calendar_events').delete(id)
     
     revalidatePath('/calendar')
     return { success: true }
   } catch (err: any) {
+    console.error('Error deleteCalendarEvent:', err)
     return { error: err.message || String(err) }
   }
 }

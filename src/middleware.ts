@@ -4,7 +4,7 @@ import PocketBase from 'pocketbase';
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
   
-  const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://192.168.1.11:8090');
+  const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL || "http://192.168.1.11:8090"; console.log("MIDDLEWARE PB URL:", pbUrl); const pb = new PocketBase(pbUrl);
   
   // Load the store data from the request cookie string
   const cookieHeader = request.headers.get('cookie') || '';
@@ -15,7 +15,7 @@ export async function middleware(request: NextRequest) {
     if (pb.authStore.isValid) {
       await pb.collection('users').authRefresh();
     }
-  } catch (_) {
+  } catch (error) { console.error("MIDDLEWARE ERROR:", error);
     // clear the auth store on failed refresh
     pb.authStore.clear();
   }

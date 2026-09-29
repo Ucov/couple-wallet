@@ -41,7 +41,7 @@ export default async function MenuPage({ searchParams }: { searchParams: Promise
       </div>
 
       <WeeklyMenuClient 
-        initialData={data || []} 
+        initialData={data as any || []} 
         coupleId={coupleId!} 
         currentWeekStart={weekStart}
       />

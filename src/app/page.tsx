@@ -125,11 +125,17 @@ export default async function Dashboard({
   ])
 
   const savingsGoals = savingsRes?.data || []
+  console.log("savingsRes:", savingsRes);
+
+  console.log("allExpenses from proxy:", allExpenses ? allExpenses.length : "UNDEFINED")
+  if (allExpenses && allExpenses.length > 0) console.log("First expense date:", allExpenses[0]?.date)
 
   const expenses = (allExpenses || []).filter((e: any) => {
     const d = new Date(e.date)
     return d >= startOfMonth && d <= endOfMonth
   })
+
+  console.log("Filtered expenses:", expenses.length)
 
   if (partnerData?.name) partnerName = partnerData.name
 
@@ -159,7 +165,7 @@ export default async function Dashboard({
   // Aseguramos que los gastos están ordenados del más antiguo al más reciente para la suma acumulativa
   const sortedExpensesAsc = [...(expenses || [])].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
-  sortedExpensesAsc?.forEach(exp => {
+  sortedExpensesAsc?.forEach((exp: any) => {
     const amount = Number(exp.amount)
     
     if (exp.is_transfer) {
@@ -215,7 +221,7 @@ export default async function Dashboard({
   const totalMonth = myTotal + partnerTotal
   const sortedCategories = Object.values(categoryTotals).sort((a, b) => b.amount - a.amount)
 
-  const prevTotal = prevExpenses?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0
+  const prevTotal = prevExpenses?.reduce((acc: any, curr: any) => acc + Number(curr.amount), 0) || 0
   
   let trendPercent = 0
   if (prevTotal > 0) {
@@ -240,7 +246,7 @@ export default async function Dashboard({
     const prevAccumExpenses = (allExpenses || []).filter((e: any) => new Date(e.date) < startOfMonth)
     let prevMyBalance = 0
     
-    prevAccumExpenses.forEach(exp => {
+    prevAccumExpenses.forEach((exp: any) => {
       const amount = Number(exp.amount)
       if (exp.is_transfer) {
         if (exp.paid_by === user.id) prevMyBalance -= amount
@@ -262,7 +268,7 @@ export default async function Dashboard({
     // Calcular balance acumulado HASTA el final del mes actual (deuda total)
     const viewedExpenses = (allExpenses || []).filter((e: any) => new Date(e.date) <= endOfMonth)
     let myBalance = 0
-    viewedExpenses.forEach(exp => {
+    viewedExpenses.forEach((exp: any) => {
       const amount = Number(exp.amount)
       if (exp.is_transfer) {
         if (exp.paid_by === user.id) myBalance -= amount
@@ -394,7 +400,7 @@ export default async function Dashboard({
       </div>
 
       <div className="mb-6">
-        <CompactSavingsWidget goals={savingsGoals} />
+        <CompactSavingsWidget goals={savingsGoals as any} />
       </div>
 
       <section className="mb-6">

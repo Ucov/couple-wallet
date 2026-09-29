@@ -1,20 +1,20 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
+import { getServerPB } from '@/lib/pocketbase-server'
 import { revalidatePath } from 'next/cache'
 
 export async function addRecurringExpense(formData: FormData) {
-  const supabase = await createClient()
+  const pb = await getServerPB()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = pb.authStore.model
   if (!user) return
 
-  // Get user profile to get couple_id
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('couple_id')
-    .eq('id', user.id)
-    .single()
+  let profile = null
+  try {
+    profile = await pb.collection('users').getFirstListItem(`id="${user.id}"`)
+  } catch (e) {
+    return
+  }
 
   if (!profile || !profile.couple_id) {
     return
@@ -33,21 +33,16 @@ export async function addRecurringExpense(formData: FormData) {
   let finalPaidBy = user.id
 
   if (paid_by_me === 'false') {
-    const { data: partnerProfile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('couple_id', profile.couple_id)
-      .neq('id', user.id)
-      .maybeSingle()
-      
-    if (partnerProfile) {
-      finalPaidBy = partnerProfile.id
-    }
+    try {
+      const partnerProfile = await pb.collection('users').getFirstListItem(`couple_id="${profile.couple_id}" && id!="${user.id}"`)
+      if (partnerProfile) {
+        finalPaidBy = partnerProfile.id
+      }
+    } catch(e) {}
   }
 
-  const { error } = await supabase
-    .from('recurring_expenses')
-    .insert({
+  try {
+    await pb.collection('recurring_expenses').create({
       amount,
       concept,
       category_id: category_id || null,
@@ -55,8 +50,7 @@ export async function addRecurringExpense(formData: FormData) {
       couple_id: profile.couple_id,
       day_of_month
     })
-
-  if (error) {
+  } catch (error: any) {
     console.error('Error adding recurring expense:', error)
     return
   }
@@ -65,17 +59,14 @@ export async function addRecurringExpense(formData: FormData) {
 }
 
 export async function deleteRecurringExpense(id: string) {
-  const supabase = await createClient()
+  const pb = await getServerPB()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = pb.authStore.model
   if (!user) throw new Error('Not authenticated')
   
-  const { error } = await supabase
-    .from('recurring_expenses')
-    .delete()
-    .eq('id', id)
-
-  if (error) {
+  try {
+    await pb.collection('recurring_expenses').delete(id)
+  } catch (error: any) {
     console.error('Error deleting recurring expense:', error)
     throw new Error(error.message)
   }
@@ -84,16 +75,13 @@ export async function deleteRecurringExpense(id: string) {
 }
 
 export async function applyRecurringExpenses(coupleId: string, month: number, year: number, shouldRevalidate = true) {
-  const supabase = await createClient()
+  const pb = await getServerPB()
 
   // 1. Check if already applied
-  const { data: application } = await supabase
-    .from('recurring_applications')
-    .select('id')
-    .eq('couple_id', coupleId)
-    .eq('month', month)
-    .eq('year', year)
-    .maybeSingle()
+  let application = null
+  try {
+    application = await pb.collection('recurring_applications').getFirstListItem(`couple_id="${coupleId}" && month=${month} && year=${year}`)
+  } catch(e) {}
 
   if (application) {
     // Already applied for this month
@@ -101,38 +89,39 @@ export async function applyRecurringExpenses(coupleId: string, month: number, ye
   }
 
   // 2. Fetch recurring expenses for this couple
-  const { data: recurring } = await supabase
-    .from('recurring_expenses')
-    .select('*')
-    .eq('couple_id', coupleId)
+  let recurring: any[] = []
+  try {
+    recurring = await pb.collection('recurring_expenses').getFullList({ filter: `couple_id="${coupleId}"` })
+  } catch(e) {}
 
   if (!recurring || recurring.length === 0) {
     // No expenses to apply, just mark as applied to avoid checking again
-    await supabase.from('recurring_applications').insert({
-      couple_id: coupleId,
-      month,
-      year
-    })
+    try {
+      await pb.collection('recurring_applications').create({
+        couple_id: coupleId,
+        month,
+        year
+      })
+    } catch(e) {}
     return { success: true, appliedCount: 0 }
   }
 
   // 3. Attempt to mark as applied FIRST (Race condition prevention)
-  // We assume there's a unique constraint on (couple_id, month, year) in the DB.
-  // If two requests come at the same time, the second one will fail here.
-  const { error: markError } = await supabase
-    .from('recurring_applications')
-    .insert({
+  let appId = null
+  try {
+    const recApp = await pb.collection('recurring_applications').create({
       couple_id: coupleId,
       month,
       year
     })
-
-  if (markError) {
+    appId = recApp.id
+  } catch(markError) {
     // Already applied or concurrent request won
     return { success: true, appliedCount: 0 }
   }
 
-  const expensesToInsert = recurring.map(exp => {
+  let successCount = 0
+  for (const exp of recurring) {
     // Create a date for this specific month/year and the recurring day
     const date = new Date(year, month, exp.day_of_month)
     if (date.getMonth() !== month) {
@@ -140,31 +129,28 @@ export async function applyRecurringExpenses(coupleId: string, month: number, ye
         date.setDate(0)
     }
 
-    return {
-      amount: exp.amount,
-      concept: exp.concept,
-      category_id: exp.category_id,
-      paid_by: exp.paid_by,
-      couple_id: exp.couple_id,
-      date: date.toISOString(),
+    try {
+      await pb.collection('expenses').create({
+        amount: exp.amount,
+        concept: exp.concept,
+        category_id: exp.category_id,
+        paid_by: exp.paid_by,
+        couple_id: exp.couple_id,
+        date: date.toISOString(),
+      })
+      successCount++
+    } catch(insertError: any) {
+      console.error('Error applying recurring expenses:', insertError)
+      // Rollback the application mark if we failed
+      if (appId) {
+        try { await pb.collection('recurring_applications').delete(appId) } catch(e) {}
+      }
+      throw new Error(insertError.message)
     }
-  })
-
-  // 4. Insert expenses for this month
-  const { error: insertError } = await supabase
-    .from('expenses')
-    .insert(expensesToInsert)
-
-  if (insertError) {
-    console.error('Error applying recurring expenses:', insertError)
-    // Rollback the application mark if we failed to insert expenses
-    await supabase.from('recurring_applications').delete().match({ couple_id: coupleId, month, year })
-    throw new Error(insertError.message)
   }
-
 
   if (shouldRevalidate) {
     revalidatePath('/')
   }
-  return { success: true, appliedCount: expensesToInsert.length }
+  return { success: true, appliedCount: successCount }
 }

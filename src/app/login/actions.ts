@@ -2,11 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { getServerPB } from '@/lib/pocketbase'
+import { getServerPB } from '@/lib/pocketbase-server'
 import { cookies } from 'next/headers'
 
 export async function login(formData: FormData) {
-  const pb = getServerPB()
+  const pb = await getServerPB()
   
   const email = formData.get('email') as string
   const password = formData.get('password') as string
@@ -17,10 +17,17 @@ export async function login(formData: FormData) {
     // Save to cookies
     const isProd = process.env.NODE_ENV === 'production'
     const cookieStore = await cookies()
-    cookieStore.set('pb_auth', pb.authStore.exportToCookie({ secure: isProd, httpOnly: true }))
+    const cookieStr = pb.authStore.exportToCookie({ secure: isProd, httpOnly: true })
+    const cookieVal = decodeURIComponent(cookieStr.split(';')[0].replace('pb_auth=', ''))
+    cookieStore.set('pb_auth', cookieVal, {
+      httpOnly: true,
+      secure: isProd,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7
+    })
     
   } catch (error) {
-    redirect('/login?message=Could not authenticate user')
+    console.error('LOGIN ERROR:', error); redirect('/login?message=' + encodeURIComponent((error as any).message))
   }
 
   revalidatePath('/', 'layout')
@@ -28,7 +35,7 @@ export async function login(formData: FormData) {
 }
 
 export async function signup(formData: FormData) {
-  const pb = getServerPB()
+  const pb = await getServerPB()
 
   const email = formData.get('email') as string
   const password = formData.get('password') as string
@@ -47,7 +54,14 @@ export async function signup(formData: FormData) {
     // Save to cookies
     const isProd = process.env.NODE_ENV === 'production'
     const cookieStore = await cookies()
-    cookieStore.set('pb_auth', pb.authStore.exportToCookie({ secure: isProd, httpOnly: true }))
+    const cookieStr = pb.authStore.exportToCookie({ secure: isProd, httpOnly: true })
+    const cookieVal = decodeURIComponent(cookieStr.split(';')[0].replace('pb_auth=', ''))
+    cookieStore.set('pb_auth', cookieVal, {
+      httpOnly: true,
+      secure: isProd,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7
+    })
 
   } catch (error: any) {
     redirect(`/login?message=${encodeURIComponent(error.message || 'Error signing up')}`)

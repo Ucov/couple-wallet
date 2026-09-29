@@ -24,10 +24,10 @@ export default async function ShoppingPage() {
     .select('*')
     .eq('couple_id', profile.couple_id)
     .order('status', { ascending: false })
-    .order('created_at', { ascending: false })
+    
 
   // Sacamos los nombres únicos para el autocompletado
-  const uniqueNames = Array.from(new Set(items?.map(i => i.name) || []))
+  const uniqueNames = Array.from(new Set(items?.map((i: any) => i.name) || []))
 
   return (
     <main className="w-full max-w-md mx-auto p-4 flex flex-col min-h-screen pb-32">
@@ -36,7 +36,7 @@ export default async function ShoppingPage() {
       </header>
 
       {/* Formulario rápido para añadir con Autocompletado */}
-      <AddShoppingFormClient uniqueNames={uniqueNames} coupleId={profile.couple_id} />
+      <AddShoppingFormClient uniqueNames={uniqueNames as any} coupleId={profile.couple_id} />
 
       {/* Listas renderizadas en cliente con Real-time */}
       <ShoppingListClient initialItems={items || []} coupleId={profile.couple_id} />

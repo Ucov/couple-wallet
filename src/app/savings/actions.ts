@@ -1,108 +1,99 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
+import { getServerPB } from '@/lib/pocketbase-server'
 import { revalidatePath } from 'next/cache'
 
 export async function getSavingsGoals() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const pb = await getServerPB()
+  const user = pb.authStore.model
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('couple_id')
-    .eq('id', user.id)
-    .single()
+  let profile
+  try {
+    profile = await pb.collection('users').getFirstListItem(`id="${user.id}"`)
+  } catch(e) {}
 
   if (!profile?.couple_id) return { error: 'No couple found' }
 
-  const { data, error } = await supabase
-    .from('savings_goals')
-    .select('*')
-    .eq('couple_id', profile.couple_id)
-    .order('created_at', { ascending: false })
-
-  if (error) return { error: error.message }
-  return { success: true, data }
+  try {
+    const data = await pb.collection('savings_goals').getFullList({
+      filter: `couple_id="${profile.couple_id}"`,
+      sort: '-created'
+    })
+    return { success: true, data }
+  } catch (error: any) {
+    return { error: error.message }
+  }
 }
 
 export async function addContribution(goalId: string, amount: number) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const pb = await getServerPB()
+  const user = pb.authStore.model
   if (!user) return { error: 'Not authenticated' }
 
   // 1. Insert contribution
-  const { error: contribError } = await supabase
-    .from('savings_contributions')
-    .insert({
+  try {
+    await pb.collection('savings_contributions').create({
       goal_id: goalId,
       user_id: user.id,
       amount
     })
-
-  if (contribError) return { error: contribError.message }
+  } catch (contribError: any) {
+    return { error: contribError.message }
+  }
 
   // 2. Update current_amount in goals
-  // Wait, Supabase RPC or just fetch and update. For simplicity: fetch and update.
-  const { data: goal } = await supabase
-    .from('savings_goals')
-    .select('current_amount')
-    .eq('id', goalId)
-    .single()
-
-  if (goal) {
-    const newAmount = Number(goal.current_amount) + amount
-    await supabase
-      .from('savings_goals')
-      .update({ current_amount: newAmount, updated_at: new Date().toISOString() })
-      .eq('id', goalId)
-  }
+  try {
+    const goal = await pb.collection('savings_goals').getOne(goalId)
+    if (goal) {
+      const newAmount = Number(goal.current_amount) + amount
+      await pb.collection('savings_goals').update(goalId, { 
+        current_amount: newAmount, 
+      })
+    }
+  } catch(e) {}
 
   revalidatePath('/')
   return { success: true }
 }
 
 export async function createSavingsGoal(name: string, targetAmount: number, emoji: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const pb = await getServerPB()
+  const user = pb.authStore.model
   if (!user) return { error: 'Not authenticated' }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('couple_id')
-    .eq('id', user.id)
-    .single()
+  let profile
+  try {
+    profile = await pb.collection('users').getFirstListItem(`id="${user.id}"`)
+  } catch(e) {}
 
   if (!profile?.couple_id) return { error: 'No couple found' }
 
-  const { error } = await supabase
-    .from('savings_goals')
-    .insert({
+  try {
+    await pb.collection('savings_goals').create({
       couple_id: profile.couple_id,
       name,
       target_amount: targetAmount,
       emoji
     })
-
-  if (error) return { error: error.message }
+  } catch (error: any) {
+    return { error: error.message }
+  }
   revalidatePath('/')
   return { success: true }
 }
 
 export async function deleteSavingsGoal(goalId: string) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const pb = await getServerPB()
+  const user = pb.authStore.model
   if (!user) return { error: 'Not authenticated' }
 
-  // Check if they belong to the couple that owns the goal (handled by RLS automatically, but we can just delete)
-  const { error } = await supabase
-    .from('savings_goals')
-    .delete()
-    .eq('id', goalId)
-
-  if (error) return { error: error.message }
+  try {
+    await pb.collection('savings_goals').delete(goalId)
+  } catch (error: any) {
+    return { error: error.message }
+  }
   
   revalidatePath('/')
   return { success: true }
 }
-
