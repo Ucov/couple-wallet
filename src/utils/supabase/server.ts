@@ -166,7 +166,7 @@ class SupabaseQueryBuilder {
               sort: this._order || undefined,
               expand: expandStr || undefined
            });
-         } catch(e) {
+         } catch(e: any) {
            if(e.status===400) {
               list = await this.pb.collection(this.table).getFullList({
                  filter: filterStr || undefined,
