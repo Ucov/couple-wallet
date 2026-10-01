@@ -1,4 +1,4 @@
-﻿import { getServerPB } from '@/lib/pocketbase-server'
+import { getServerPB } from '@/lib/pocketbase-server'
 import webpush from '@/lib/webpush'
 
 export async function sendPushToPartner(coupleId: string, currentUserId: string, title: string, body: string, url: string = '/') {
@@ -8,15 +8,15 @@ export async function sendPushToPartner(coupleId: string, currentUserId: string,
     // Buscar a la pareja
     let partnerProfile;
     try {
-      partnerProfile = await pb.collection('users').getFirstListItem(\couple_id="\" && id!="\"\)
+      partnerProfile = await pb.collection('users').getFirstListItem(`couple_id="${coupleId}" && id!="${currentUserId}"`)
     } catch(e) {}
 
     if (!partnerProfile) return
 
     // Buscar todas sus suscripciones
-    let subscriptions = []
+    let subscriptions: any[] = []
     try {
-      subscriptions = await pb.collection('push_subscriptions').getFullList({ filter: \user_id="\"\ })
+      subscriptions = await pb.collection('push_subscriptions').getFullList({ filter: `user_id="${partnerProfile.id}"` })
     } catch(e) {}
 
     if (!subscriptions || subscriptions.length === 0) return
