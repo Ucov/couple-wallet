@@ -62,7 +62,7 @@ export default function BottomNav() {
           }}
           className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 text-white px-5 py-3 rounded-2xl shadow-xl hover:bg-zinc-800 transition-colors"
         >
-          <div className="bg-rose-500/20 text-rose-400 p-2 rounded-xl">
+          <div className="bg-emerald-500/20 text-emerald-400 p-2 rounded-xl">
             <PiggyBank size={20} />
           </div>
           <span className="font-medium">Nueva Hucha</span>

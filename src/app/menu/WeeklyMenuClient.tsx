@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useMemo, useTransition } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { Sun, Moon, ShoppingCart, ChevronLeft, ChevronRight } from 'lucide-react'
-import { upsertMenuMeal } from './actions'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { addShoppingItem } from '@/app/shopping/actions'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import AddIngredientsModal from './AddIngredientsModal'
+import { MealInput } from './MealInput'
 
 type MenuData = {
   date: string
@@ -46,24 +46,6 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
     })
   }
 
-  const handleChange = (dateStr: string, type: 'lunch' | 'dinner', value: string) => {
-    setData(prev => {
-      const existing = prev.find(d => d.date === dateStr)
-      if (existing) {
-        return prev.map(d => d.date === dateStr ? { ...d, [type]: value } : d)
-      } else {
-        return [...prev, { date: dateStr, lunch: null, dinner: null, [type]: value }]
-      }
-    })
-  }
-
-  const handleBlur = (dateStr: string, type: 'lunch' | 'dinner', value: string) => {
-    startTransition(async () => {
-      const res = await upsertMenuMeal(dateStr, type, value)
-      if (res.error) toast.error(res.error)
-      else broadcastSync()
-    })
-  }
 
   const handleOpenIngredientsModal = (meal: string) => {
     setActiveMealForModal(meal)
@@ -156,52 +138,22 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
 
               <div className="flex flex-col gap-3">
                 {/* LUNCH */}
-                <div className="group relative flex items-center bg-zinc-950/30 rounded-2xl border border-zinc-800/30 focus-within:border-amber-500/30 transition-colors overflow-hidden">
-                  <div className="pl-4 pr-3 py-3 text-amber-500/70">
-                    <Sun size={18} />
-                  </div>
-                  <input 
-                    type="text"
-                    placeholder="Comida..."
-                    className="flex-1 bg-transparent border-none text-sm text-zinc-300 focus:ring-0 px-0 py-3 placeholder:text-zinc-700"
-                    value={dayData.lunch || ''}
-                    onChange={(e) => handleChange(dateStr, 'lunch', e.target.value)}
-                    onBlur={(e) => handleBlur(dateStr, 'lunch', e.target.value)}
-                  />
-                  {(dayData.lunch || '').trim().length > 0 && (
-                    <button 
-                      onClick={() => handleOpenIngredientsModal(dayData.lunch || '')}
-                      className="px-4 py-3 text-zinc-500 hover:text-emerald-400 transition-colors"
-                      title="Añadir a lista de la compra"
-                    >
-                      <ShoppingCart size={16} />
-                    </button>
-                  )}
-                </div>
+                <MealInput 
+                  dateStr={dateStr}
+                  type="lunch"
+                  initialValue={dayData.lunch || ''}
+                  onOpenIngredients={handleOpenIngredientsModal}
+                  broadcastSync={broadcastSync}
+                />
 
                 {/* DINNER */}
-                <div className="group relative flex items-center bg-zinc-950/30 rounded-2xl border border-zinc-800/30 focus-within:border-indigo-500/30 transition-colors overflow-hidden">
-                  <div className="pl-4 pr-3 py-3 text-indigo-400/70">
-                    <Moon size={18} />
-                  </div>
-                  <input 
-                    type="text"
-                    placeholder="Cena..."
-                    className="flex-1 bg-transparent border-none text-sm text-zinc-300 focus:ring-0 px-0 py-3 placeholder:text-zinc-700"
-                    value={dayData.dinner || ''}
-                    onChange={(e) => handleChange(dateStr, 'dinner', e.target.value)}
-                    onBlur={(e) => handleBlur(dateStr, 'dinner', e.target.value)}
-                  />
-                  {(dayData.dinner || '').trim().length > 0 && (
-                    <button 
-                      onClick={() => handleOpenIngredientsModal(dayData.dinner || '')}
-                      className="px-4 py-3 text-zinc-500 hover:text-emerald-400 transition-colors"
-                      title="Añadir a lista de la compra"
-                    >
-                      <ShoppingCart size={16} />
-                    </button>
-                  )}
-                </div>
+                <MealInput 
+                  dateStr={dateStr}
+                  type="dinner"
+                  initialValue={dayData.dinner || ''}
+                  onOpenIngredients={handleOpenIngredientsModal}
+                  broadcastSync={broadcastSync}
+                />
               </div>
             </div>
           )
