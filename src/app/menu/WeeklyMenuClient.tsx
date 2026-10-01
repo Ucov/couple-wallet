@@ -46,8 +46,7 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
     })
   }
 
-  const handleUpdate = (dateStr: string, type: 'lunch' | 'dinner', value: string) => {
-    // Optimistic update
+  const handleChange = (dateStr: string, type: 'lunch' | 'dinner', value: string) => {
     setData(prev => {
       const existing = prev.find(d => d.date === dateStr)
       if (existing) {
@@ -56,7 +55,9 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
         return [...prev, { date: dateStr, lunch: null, dinner: null, [type]: value }]
       }
     })
+  }
 
+  const handleBlur = (dateStr: string, type: 'lunch' | 'dinner', value: string) => {
     startTransition(async () => {
       const res = await upsertMenuMeal(dateStr, type, value)
       if (res.error) toast.error(res.error)
@@ -164,7 +165,8 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
                     placeholder="Comida..."
                     className="flex-1 bg-transparent border-none text-sm text-zinc-300 focus:ring-0 px-0 py-3 placeholder:text-zinc-700"
                     value={dayData.lunch || ''}
-                    onChange={(e) => handleUpdate(dateStr, 'lunch', e.target.value)}
+                    onChange={(e) => handleChange(dateStr, 'lunch', e.target.value)}
+                    onBlur={(e) => handleBlur(dateStr, 'lunch', e.target.value)}
                   />
                   {(dayData.lunch || '').trim().length > 0 && (
                     <button 
@@ -187,7 +189,8 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
                     placeholder="Cena..."
                     className="flex-1 bg-transparent border-none text-sm text-zinc-300 focus:ring-0 px-0 py-3 placeholder:text-zinc-700"
                     value={dayData.dinner || ''}
-                    onChange={(e) => handleUpdate(dateStr, 'dinner', e.target.value)}
+                    onChange={(e) => handleChange(dateStr, 'dinner', e.target.value)}
+                    onBlur={(e) => handleBlur(dateStr, 'dinner', e.target.value)}
                   />
                   {(dayData.dinner || '').trim().length > 0 && (
                     <button 
