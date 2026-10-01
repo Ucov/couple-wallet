@@ -33,25 +33,26 @@ export default function BottomNav() {
         }`}
       >
         <Link 
-          href="/shopping"
+          href="/calendar"
           onClick={() => setIsFabOpen(false)}
           className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 text-white px-5 py-3 rounded-2xl shadow-xl hover:bg-zinc-800 transition-colors"
         >
           <div className="bg-emerald-500/20 text-emerald-400 p-2 rounded-xl">
-            <ShoppingCart size={20} />
+            <Calendar size={20} />
           </div>
-          <span className="font-medium">Ir a la compra</span>
+          <span className="font-medium">Agenda</span>
         </Link>
         
         <Link 
-          href="/menu"
+          href="/chores"
           onClick={() => setIsFabOpen(false)}
           className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 text-white px-5 py-3 rounded-2xl shadow-xl hover:bg-zinc-800 transition-colors"
         >
-          <div className="bg-amber-500/20 text-amber-400 p-2 rounded-xl">
-            <Utensils size={20} />
+          <div className="bg-emerald-500/20 text-emerald-400 p-2 rounded-xl">
+            <CheckSquare size={20} />
           </div>
-          <span className="font-medium">Planificar menú</span>
+          <span className="font-medium">Tareas</span>
+          
         </Link>
         
         <button 
@@ -87,19 +88,19 @@ export default function BottomNav() {
           </Link>
           
           <Link 
-            href="/calendar" 
+            href="/shopping" 
             prefetch={true}
-            className={`flex flex-col items-center justify-center w-[50px] h-14 rounded-2xl transition-all duration-300 ${
-              pathname.startsWith('/calendar')
+            className={`flex flex-col items-center justify-center w-[50px] h-14 mt-1 rounded-2xl space-y-1 transition-all duration-300 ${
+              pathname.startsWith('/shopping')
                 ? 'text-emerald-400 bg-emerald-500/10' 
                 : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            <div className={`transition-transform duration-300 ${pathname.startsWith('/calendar') ? 'scale-110 mb-1' : 'mb-0.5'}`}>
-              <Calendar size={22} strokeWidth={pathname.startsWith('/calendar') ? 2.5 : 2} />
+            <div className={`transition-transform duration-300 ${pathname.startsWith('/shopping') ? 'scale-110 mb-1' : 'mb-0.5'}`}>
+              <ShoppingCart size={22} className={pathname.startsWith('/shopping') ? 'fill-emerald-400/20' : ''} strokeWidth={pathname.startsWith('/shopping') ? 2.5 : 2} />
             </div>
-            <span className={`text-[10px] font-medium transition-all duration-300 ${pathname.startsWith('/calendar') ? 'opacity-100' : 'opacity-70'}`}>
-              Agenda
+            <span className={`text-[10px] font-medium transition-all duration-300 ${pathname.startsWith('/shopping') ? 'opacity-100' : 'opacity-70'}`}>
+              Compra
             </span>
           </Link>
 
@@ -112,14 +113,14 @@ export default function BottomNav() {
           </button>
 
           <Link 
-            href="/chores"
+            href="/menu"
             prefetch={true}
             className={`flex flex-col items-center justify-center w-[50px] h-14 mt-1 rounded-2xl space-y-1 transition-all ${
-              pathname === '/chores' || pathname?.startsWith('/chores') ? 'text-emerald-400 bg-emerald-500/10' : 'text-zinc-500 hover:text-zinc-300'
+              pathname === '/menu' || pathname?.startsWith('/menu') ? 'text-emerald-400 bg-emerald-500/10' : 'text-zinc-500 hover:text-zinc-300'
             }`}
           >
-            <CheckSquare size={22} className={pathname === '/chores' || pathname?.startsWith('/chores') ? 'fill-emerald-400/20' : ''} />
-            <span className="text-[10px] font-medium">Tareas</span>
+            <Utensils size={22} className={pathname === '/menu' || pathname?.startsWith('/menu') ? 'fill-emerald-400/20' : ''} />
+            <span className="text-[10px] font-medium">Menú</span>
           </Link>
           
           <Link 

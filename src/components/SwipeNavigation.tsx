@@ -16,7 +16,7 @@ export default function SwipeNavigation() {
     let touchStartY = 0
     let touchEndY = 0
 
-    const routes = ['/', '/shopping', '/chores', '/calendar', '/profile']
+    const routes = ['/', '/shopping', '/menu', '/profile']
     const currentIndex = routes.indexOf(pathname)
 
     const handleTouchStart = (e: TouchEvent) => {
