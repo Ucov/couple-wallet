@@ -1,25 +1,23 @@
-import { createClient } from '@/utils/supabase/server'
+﻿import { getServerPB } from '@/lib/pocketbase-server'
 import webpush from '@/lib/webpush'
 
 export async function sendPushToPartner(coupleId: string, currentUserId: string, title: string, body: string, url: string = '/') {
   try {
-    const supabase = await createClient()
+    const pb = await getServerPB()
 
     // Buscar a la pareja
-    const { data: partnerProfile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('couple_id', coupleId)
-      .neq('id', currentUserId)
-      .maybeSingle()
+    let partnerProfile;
+    try {
+      partnerProfile = await pb.collection('users').getFirstListItem(\couple_id="\" && id!="\"\)
+    } catch(e) {}
 
     if (!partnerProfile) return
 
     // Buscar todas sus suscripciones
-    const { data: subscriptions } = await supabase
-      .from('push_subscriptions')
-      .select('id, subscription_json')
-      .eq('user_id', partnerProfile.id)
+    let subscriptions = []
+    try {
+      subscriptions = await pb.collection('push_subscriptions').getFullList({ filter: \user_id="\"\ })
+    } catch(e) {}
 
     if (!subscriptions || subscriptions.length === 0) return
 
@@ -36,7 +34,7 @@ export async function sendPushToPartner(coupleId: string, currentUserId: string,
         await webpush.sendNotification(sub.subscription_json as any, payload)
       } catch (error: any) {
         if (error.statusCode === 404 || error.statusCode === 410) {
-          await supabase.from('push_subscriptions').delete().eq('id', sub.id)
+          await pb.collection('push_subscriptions').delete(sub.id)
         } else {
           console.error('Error al enviar push:', error)
         }

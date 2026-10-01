@@ -63,7 +63,7 @@ export default function PushNotificationsClient({ coupleId }: { coupleId: string
         } else {
           const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
           if (!vapidKey) {
-            toast.error('Faltan las claves de seguridad en Vercel. Tienes que configurar NEXT_PUBLIC_VAPID_PUBLIC_KEY en la web de Vercel.')
+            toast.error('Faltan las claves de seguridad. Tienes que configurar NEXT_PUBLIC_VAPID_PUBLIC_KEY en tu archivo .env.local')
             return
           }
 
