@@ -1,37 +1,34 @@
-import { createClient } from '@/utils/supabase/server'
+import { getServerPB } from '@/lib/pocketbase-server'
 import { redirect } from 'next/navigation'
 import CalendarClient from './CalendarClient'
 
 export const dynamic = 'force-dynamic'
 
 export default async function CalendarPage() {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
+  const pb = await getServerPB()
+  const user = pb.authStore.model
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('couple_id, name')
-    .eq('id', user.id)
-    .single()
+  let profile
+  try {
+    profile = await pb.collection('users').getFirstListItem(`id="${user.id}"`)
+  } catch(e) {}
 
   if (!profile?.couple_id) redirect('/setup-couple')
 
-  // Obtener eventos desde hace 7 días hasta los próximos 60 días
   const past = new Date()
   past.setDate(past.getDate() - 365)
   
   const future = new Date()
   future.setDate(future.getDate() + 365)
 
-  const { data: events } = await supabase
-    .from('calendar_events')
-    .select('*')
-    .eq('couple_id', profile.couple_id)
-    .gte('date', past.toISOString())
-    .lte('date', future.toISOString())
-    .order('date', { ascending: true })
+  let events: any[] = []
+  try {
+    events = await pb.collection('calendar_events').getFullList({
+      filter: `couple_id="${profile.couple_id}" && date>="${past.toISOString()}" && date<="${future.toISOString()}"`,
+      sort: 'date'
+    })
+  } catch(e) {}
 
   return (
     <main className="w-full max-w-md mx-auto min-h-screen flex flex-col pb-32">

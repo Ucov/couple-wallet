@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server'
+
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { PlusCircle, LogOut, Pencil, ChevronLeft, ChevronRight, Repeat, CheckCircle, UserCog } from 'lucide-react'
@@ -43,34 +43,26 @@ interface Expense {
   categories: Category | Category[] | null
 }
 
+
 export default async function Dashboard({
   searchParams,
 }: {
   searchParams: Promise<{ month?: string; year?: string }>
 }) {
-  const supabase = await createClient()
+  const { getServerPB } = await import('@/lib/pocketbase-server');
+  const pb = await getServerPB();
+
   const { month, year } = await searchParams
 
-  // 1. Verificar auth
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = pb.authStore.model;
   if (!user) {
     redirect('/login')
   }
 
-  // 2. Obtener perfil del usuario
-  const { data: userProfile, error: profileError } = await supabase
-    .from('profiles')
-    .select(`
-      couple_id, 
-      name,
-      split_percentage
-    `)
-    .eq('id', user.id)
-    .single()
-
-  if (profileError) {
-    console.error('Error fetching profile:', profileError)
-  }
+  let userProfile;
+  try {
+    userProfile = await pb.collection('users').getFirstListItem(`id="${user.id}"`);
+  } catch(e) {}
 
   if (!userProfile?.couple_id) {
     redirect('/setup-couple')
@@ -87,44 +79,41 @@ export default async function Dashboard({
   const prevMonthStart = new Date(currentYear, currentMonth - 1, 1)
   const prevMonthEnd = new Date(currentYear, currentMonth, 0, 23, 59, 59)
 
-  let partnerQuery: any = Promise.resolve({ data: null as any })
+  let partnerData;
   if (userProfile?.couple_id) {
-    partnerQuery = supabase.from('profiles').select('id, name').eq('couple_id', userProfile.couple_id).neq('id', user.id).maybeSingle()
+    try {
+      partnerData = await pb.collection('users').getFirstListItem(`couple_id="${userProfile.couple_id}" && id!="${user.id}"`);
+    } catch(e) {}
   }
 
-  const applyRecurring = userProfile?.couple_id 
-    ? applyRecurringExpenses(userProfile.couple_id, now.getMonth(), now.getFullYear(), false).catch(e => console.error(e))
-    : Promise.resolve()
-
-  let allExpensesQuery = supabase.from('expenses').select(`
-      id, amount, concept, date, created_at, paid_by, category_id, is_refundable, is_transfer, split_percentage, categories ( name, icon, color )
-    `).order('date', { ascending: false }).order('created_at', { ascending: false })
-
-  let prevExpensesQuery = supabase.from('expenses').select('amount').gte('date', prevMonthStart.toISOString()).lte('date', prevMonthEnd.toISOString()).eq('is_transfer', false)
-
   if (userProfile?.couple_id) {
-    allExpensesQuery = allExpensesQuery.eq('couple_id', userProfile.couple_id)
-    prevExpensesQuery = prevExpensesQuery.eq('couple_id', userProfile.couple_id)
-  } else {
-    allExpensesQuery = allExpensesQuery.eq('paid_by', user.id)
-    prevExpensesQuery = prevExpensesQuery.eq('paid_by', user.id)
+    applyRecurringExpenses(userProfile.couple_id, now.getMonth(), now.getFullYear(), false).catch(e => console.error(e));
   }
 
-  const [
-    { data: partnerData },
-    _, // recurring
-    { data: allExpenses },
-    { data: prevExpenses },
-    savingsRes
-  ] = await Promise.all([
-    partnerQuery,
-    applyRecurring,
-    allExpensesQuery,
-    prevExpensesQuery,
-    getSavingsGoals()
-  ])
+  let allExpenses: any = [];
+  try {
+    allExpenses = await pb.collection('expenses').getFullList({
+      filter: userProfile?.couple_id ? `couple_id="${userProfile.couple_id}"` : `paid_by="${user.id}"`,
+      sort: '-date,-created',
+      expand: 'category_id'
+    });
+    allExpenses = allExpenses.map((exp: any) => ({
+      ...exp,
+      categories: exp.expand?.category_id || null
+    }));
+  } catch(e) {}
 
-  const savingsGoals = savingsRes?.data || []
+  let prevExpenses: any = [];
+  try {
+    const pFilter = (userProfile?.couple_id ? `couple_id="${userProfile.couple_id}"` : `paid_by="${user.id}"`) + ` && date>="${prevMonthStart.toISOString()}" && date<="${prevMonthEnd.toISOString()}" && is_transfer=false`;
+    prevExpenses = await pb.collection('expenses').getFullList({
+      filter: pFilter
+    });
+  } catch(e) {}
+
+  const savingsRes = await getSavingsGoals();
+  const savingsGoals = savingsRes?.data || [];
+
   console.log("savingsRes:", savingsRes);
 
   console.log("allExpenses from proxy:", allExpenses ? allExpenses.length : "UNDEFINED")

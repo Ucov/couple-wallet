@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server'
+
 import { addRecurringExpense } from '../recurring-actions'
 import Link from 'next/link'
 import { ArrowLeft, Repeat, CalendarDays, Wallet, Plus } from 'lucide-react'
@@ -68,20 +68,16 @@ const getBrandInfo = (concept: string) => {
   return { letter: concept.charAt(0).toUpperCase(), bg: 'bg-zinc-800', text: 'text-white' }
 }
 
+import { getServerPB } from '@/lib/pocketbase-server'
+
 export default async function RecurringExpensesPage() {
-  const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    redirect('/login')
-  }
-
-  const { data: userProfile } = await supabase
-    .from('profiles')
-    .select('couple_id')
-    .eq('id', user.id)
-    .single()
-
+  const pb = await getServerPB();
+  const user = pb.authStore.model;
+  if (!user) { redirect('/login'); }
+  
+  let userProfile; 
+  try { userProfile = await pb.collection('users').getFirstListItem(`id="${user.id}"`); } catch(e) {}
+  
   if (!userProfile?.couple_id) {
     return (
       <main className="w-full max-w-md mx-auto p-4 flex flex-col min-h-screen justify-center items-center text-center">
@@ -91,24 +87,22 @@ export default async function RecurringExpensesPage() {
       </main>
     )
   }
-
-  const { data: categories } = await supabase.from('categories').select('*').order('name')
   
-  const { data: recurringExpenses } = await supabase
-    .from('recurring_expenses')
-    .select(`
-      id,
-      amount,
-      concept,
-      day_of_month,
-      paid_by,
-      categories ( name, icon, color )
-    `)
-    .eq('couple_id', userProfile.couple_id)
-    .order('day_of_month', { ascending: true })
+  let categories: any = [];
+  try { categories = await pb.collection('categories').getFullList({ sort: 'name' }); } catch(e) {}
+  
+  let expenses: any = [];
+  try {
+    expenses = await pb.collection('recurring_expenses').getFullList({
+      filter: `couple_id="${userProfile.couple_id}"`,
+      expand: 'category_id',
+      sort: 'day_of_month'
+    });
+    expenses = expenses.map((exp: any) => ({ ...exp, categories: exp.expand?.category_id || null }));
+  } catch(e) {}
 
   // Cálculos del Dashboard
-  const expenses = recurringExpenses || []
+  
   const totalMonthly = expenses.reduce((acc: any, curr: any) => acc + Number(curr.amount), 0)
   const totalYearly = totalMonthly * 12
 

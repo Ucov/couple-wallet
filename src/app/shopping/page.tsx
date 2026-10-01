@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server'
+import { getServerPB } from '@/lib/pocketbase-server'
 import { redirect } from 'next/navigation'
 import { Plus } from 'lucide-react'
 import ShoppingListClient from './ShoppingListClient'
@@ -7,26 +7,25 @@ import AddShoppingFormClient from '@/components/AddShoppingFormClient'
 export const dynamic = 'force-dynamic'
 
 export default async function ShoppingPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const pb = await getServerPB()
+  const user = pb.authStore.model
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('couple_id')
-    .eq('id', user.id)
-    .single()
+  let profile
+  try {
+    profile = await pb.collection('users').getFirstListItem(`id="${user.id}"`)
+  } catch(e) {}
 
   if (!profile?.couple_id) redirect('/setup-couple')
 
-  const { data: items } = await supabase
-    .from('shopping_items')
-    .select('*')
-    .eq('couple_id', profile.couple_id)
-    .order('status', { ascending: false })
-    
+  let items: any[] = []
+  try {
+    items = await pb.collection('shopping_items').getFullList({
+      filter: `couple_id="${profile.couple_id}"`,
+      sort: '-status,-created'
+    })
+  } catch(e) {}
 
-  // Sacamos los nombres únicos para el autocompletado
   const uniqueNames = Array.from(new Set(items?.map((i: any) => i.name) || []))
 
   return (

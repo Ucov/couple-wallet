@@ -1,36 +1,33 @@
-import { createClient } from '@/utils/supabase/server'
+import { getServerPB } from '@/lib/pocketbase-server'
 import { redirect } from 'next/navigation'
 import ChoresClient from './ChoresClient'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ChoresPage() {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
+  const pb = await getServerPB()
+  const user = pb.authStore.model
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('couple_id, name')
-    .eq('id', user.id)
-    .single()
+  let profile
+  try {
+    profile = await pb.collection('users').getFirstListItem(`id="${user.id}"`)
+  } catch(e) {}
 
   if (!profile?.couple_id) redirect('/setup-couple')
 
-  // Obtener perfil de la pareja para las asignaciones
-  const { data: partnerProfile } = await supabase
-    .from('profiles')
-    .select('id, name')
-    .eq('couple_id', profile.couple_id)
-    .neq('id', user.id)
-    .maybeSingle()
+  let partnerProfile
+  try {
+    partnerProfile = await pb.collection('users').getFirstListItem(`couple_id="${profile.couple_id}" && id!="${user.id}"`)
+  } catch(e) {}
 
-  const { data: chores } = await supabase
-    .from('chores')
-    .select('*')
-    .eq('couple_id', profile.couple_id)
-    .order('created_at', { ascending: false })
+  let chores: any[] = []
+  try {
+    chores = await pb.collection('chores').getFullList({
+      filter: `couple_id="${profile.couple_id}"`,
+      sort: '-created'
+    })
+  } catch(e) {}
 
   return (
     <main className="w-full max-w-md mx-auto min-h-screen flex flex-col pb-32">
