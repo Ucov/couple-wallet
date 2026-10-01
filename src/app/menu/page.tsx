@@ -2,6 +2,8 @@ import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import WeeklyMenuClient from './WeeklyMenuClient'
 import { getWeeklyMenu } from './actions'
+import { startOfWeek, addDays, format, parseISO } from 'date-fns'
+import { es } from 'date-fns/locale'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,21 +15,18 @@ export default async function MenuPage({ searchParams }: { searchParams: Promise
   const resolvedParams = await searchParams
   
   // Find Monday of the current week (or requested week)
-  const today = resolvedParams.start ? new Date(resolvedParams.start) : new Date()
-  const day = today.getDay()
-  const diff = today.getDate() - day + (day === 0 ? -6 : 1) // Adjust when day is Sunday
+  let today = new Date()
+  if (resolvedParams.start) {
+    today = parseISO(resolvedParams.start)
+  }
   
-  const weekStart = new Date(today.setDate(diff))
-  weekStart.setHours(0, 0, 0, 0)
-  
-  const weekEnd = new Date(weekStart)
-  weekEnd.setDate(weekStart.getDate() + 6)
-  weekEnd.setHours(23, 59, 59, 999)
+  const weekStart = startOfWeek(today, { weekStartsOn: 1 })
+  const weekEnd = addDays(weekStart, 6)
 
-  const { data, coupleId, error } = await getWeeklyMenu(
-    weekStart.toISOString(), 
-    weekEnd.toISOString()
-  )
+  const startDateStr = format(weekStart, 'yyyy-MM-dd')
+  const endDateStr = format(weekEnd, 'yyyy-MM-dd')
+
+  const { data, coupleId, error } = await getWeeklyMenu(startDateStr, endDateStr)
 
   if (error) {
     return <div className="p-4 text-red-500">Error loading menu: {error}</div>
@@ -43,7 +42,7 @@ export default async function MenuPage({ searchParams }: { searchParams: Promise
       <WeeklyMenuClient 
         initialData={data as any || []} 
         coupleId={coupleId!} 
-        currentWeekStart={weekStart}
+        currentWeekStart={startDateStr}
       />
     </main>
   )

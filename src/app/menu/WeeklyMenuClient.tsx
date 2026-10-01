@@ -8,6 +8,8 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import AddIngredientsModal from './AddIngredientsModal'
 import { MealInput } from './MealInput'
+import { format, addDays, parseISO, parse } from 'date-fns'
+import { es } from 'date-fns/locale'
 
 type MenuData = {
   date: string
@@ -15,7 +17,7 @@ type MenuData = {
   dinner: string | null
 }
 
-export default function WeeklyMenuClient({ initialData, coupleId, currentWeekStart }: { initialData: MenuData[], coupleId: string, currentWeekStart: Date }) {
+export default function WeeklyMenuClient({ initialData, coupleId, currentWeekStart }: { initialData: MenuData[], coupleId: string, currentWeekStart: string }) {
   const [data, setData] = useState(initialData)
   const [weekStart, setWeekStart] = useState(currentWeekStart)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -46,7 +48,6 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
     })
   }
 
-
   const handleOpenIngredientsModal = (meal: string) => {
     setActiveMealForModal(meal)
     setIsModalOpen(true)
@@ -68,33 +69,28 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
     })
   }
 
-  const getDaysOfWeek = (start: Date) => {
+  const getDaysOfWeek = (startStr: string) => {
     const days = []
-    const base = new Date(start)
+    const base = parseISO(startStr)
     for (let i = 0; i < 7; i++) {
-      const d = new Date(base)
-      d.setDate(base.getDate() + i)
-      days.push(d)
+      days.push(format(addDays(base, i), 'yyyy-MM-dd'))
     }
     return days
   }
 
-  const days = getDaysOfWeek(weekStart)
-  const todayStr = new Date().toISOString().split('T')[0]
+  const daysStr = getDaysOfWeek(weekStart)
+  const todayStr = format(new Date(), 'yyyy-MM-dd')
 
   const goPrevWeek = () => {
-    const newStart = new Date(weekStart)
-    newStart.setDate(weekStart.getDate() - 7)
-    // Update URL to trigger server fetch
-    router.push(`/menu?start=${newStart.toISOString().split('T')[0]}`)
-    setWeekStart(newStart)
+    const prev = format(addDays(parseISO(weekStart), -7), 'yyyy-MM-dd')
+    router.push(`/menu?start=${prev}`)
+    setWeekStart(prev)
   }
 
   const goNextWeek = () => {
-    const newStart = new Date(weekStart)
-    newStart.setDate(weekStart.getDate() + 7)
-    router.push(`/menu?start=${newStart.toISOString().split('T')[0]}`)
-    setWeekStart(newStart)
+    const next = format(addDays(parseISO(weekStart), 7), 'yyyy-MM-dd')
+    router.push(`/menu?start=${next}`)
+    setWeekStart(next)
   }
 
   const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
@@ -107,7 +103,7 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
         </button>
         <div className="text-center">
           <span className="block text-sm font-medium text-zinc-300">
-            {weekStart.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} - {days[6].toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+            {format(parseISO(daysStr[0]), "d MMM", { locale: es })} - {format(parseISO(daysStr[6]), "d MMM", { locale: es })}
           </span>
         </div>
         <button onClick={goNextWeek} className="p-2 text-zinc-400 hover:text-white transition-colors" disabled={isPending}>
@@ -116,10 +112,11 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
       </div>
 
       <div className="flex flex-col gap-4">
-        {days.map(d => {
-          const dateStr = d.toISOString().split('T')[0]
+        {daysStr.map(dateStr => {
           const isToday = dateStr === todayStr
-          const dayData = data.find(x => x.date === dateStr) || { lunch: '', dinner: '' }
+          const dayData = data.find(x => (x.date.split(' ')[0] === dateStr || x.date === dateStr)) || { lunch: '', dinner: '' }
+          
+          const d = parseISO(dateStr)
 
           return (
             <div 
@@ -127,11 +124,11 @@ export default function WeeklyMenuClient({ initialData, coupleId, currentWeekSta
               className={`p-4 rounded-3xl border ${isToday ? 'border-emerald-500/30 bg-emerald-950/10' : 'border-zinc-800/50 bg-zinc-900/20'}`}
             >
               <div className="flex items-baseline gap-2 mb-3">
-                <h3 className={`text-lg font-bold ${isToday ? 'text-emerald-400' : 'text-zinc-200'}`}>
-                  {dayNames[d.getDay()]}
+                <h3 className={`text-lg font-bold capitalize ${isToday ? 'text-emerald-400' : 'text-zinc-200'}`}>
+                  {format(d, 'EEEE', { locale: es })}
                 </h3>
                 <span className="text-xs text-zinc-500 font-medium">
-                  {d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                  {format(d, 'd MMM', { locale: es })}
                 </span>
                 {isToday && <span className="ml-auto text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-medium tracking-wide uppercase">Hoy</span>}
               </div>
