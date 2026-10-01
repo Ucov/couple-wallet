@@ -7,3 +7,9 @@ services:
       - "3005:3000"
     env_file:
       - .env.local
+    labels:
+      - homepage.group=Finanzas
+      - homepage.name=CoupleWallet
+      - homepage.icon=http://192.168.1.11:3005/icon-192x192.png
+      - homepage.href=http://192.168.1.11:3005
+      - homepage.description=Gestión de finanzas en pareja
