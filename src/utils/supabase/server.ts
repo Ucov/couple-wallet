@@ -150,7 +150,7 @@ class SupabaseQueryBuilder {
            if (res && res.expand) {
              if (res.expand.category_id) res.categories = res.expand.category_id;
            }
-         } catch(e: any) {
+         } catch(error) { const e = error as any;
            if (e.status === 404 && this._maybeSingle) {
               res = null;
            } else {
@@ -166,7 +166,7 @@ class SupabaseQueryBuilder {
               sort: this._order || undefined,
               expand: expandStr || undefined
            });
-         } catch(e: any) {
+         } catch(error) { const e = error as any;
            if(e.status===400) {
               list = await this.pb.collection(this.table).getFullList({
                  filter: filterStr || undefined,
