@@ -91,7 +91,7 @@ export async function applyRecurringExpenses(coupleId: string, month: number, ye
   // 2. Fetch recurring expenses for this couple
   let recurring: any[] = []
   try {
-    recurring = await pb.collection('recurring_expenses').getFullList({ filter: `couple_id="${coupleId}"` })
+    recurring = await pb.collection('recurring_expenses').getFullList({ filter: `couple_id="${coupleId}" && is_paused=false` })
   } catch(e) {}
 
   if (!recurring || recurring.length === 0) {

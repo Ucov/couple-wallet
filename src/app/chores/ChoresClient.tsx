@@ -31,7 +31,7 @@ import { useRouter } from 'next/navigation'
 export default function ChoresClient({ initialChores, coupleId, currentUserId, currentUserName, partnerId, partnerName }: Props) {
   const [chores, setChores] = useState<Chore[]>(initialChores)
   const [newTitle, setNewTitle] = useState('')
-  const [selectedPoints, setSelectedPoints] = useState<number>(10)
+  const [selectedPoints, setSelectedPoints] = useState<number>(1)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
@@ -91,7 +91,7 @@ export default function ChoresClient({ initialChores, coupleId, currentUserId, c
     const tempId = crypto.randomUUID()
     setChores(prev => [{ id: tempId, title: tempTitle, is_done: false, assigned_to: null, points: tempPoints, completed_by: null, completed_at: null }, ...prev])
     setNewTitle('')
-    setSelectedPoints(10)
+    setSelectedPoints(1)
     
     startTransition(async () => { 
       await addChore(tempTitle, tempPoints) 
@@ -186,27 +186,27 @@ export default function ChoresClient({ initialChores, coupleId, currentUserId, c
             <div className="flex gap-1 bg-zinc-950 rounded-full p-1 border border-zinc-800/50">
               <button
                 type="button"
-                onClick={() => setSelectedPoints(10)}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 ${selectedPoints === 10 ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                onClick={() => setSelectedPoints(1)}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 ${selectedPoints === 1 ? 'bg-emerald-500/20 text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'}`}
               >
-                <span>10</span>
-                <Star size={10} className={selectedPoints === 10 ? 'fill-emerald-400' : ''} />
+                <span>1</span>
+                <Star size={10} className={selectedPoints === 1 ? 'fill-emerald-400' : ''} />
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedPoints(30)}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 ${selectedPoints === 30 ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                onClick={() => setSelectedPoints(2)}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 ${selectedPoints === 2 ? 'bg-amber-500/20 text-amber-400' : 'text-zinc-500 hover:text-zinc-300'}`}
               >
-                <span>30</span>
-                <Star size={10} className={selectedPoints === 30 ? 'fill-amber-400' : ''} />
+                <span>2</span>
+                <Star size={10} className={selectedPoints === 2 ? 'fill-amber-400' : ''} />
               </button>
               <button
                 type="button"
-                onClick={() => setSelectedPoints(50)}
-                className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 ${selectedPoints === 50 ? 'bg-rose-500/20 text-rose-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                onClick={() => setSelectedPoints(3)}
+                className={`px-3 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1 ${selectedPoints === 3 ? 'bg-rose-500/20 text-rose-400' : 'text-zinc-500 hover:text-zinc-300'}`}
               >
-                <span>50</span>
-                <Star size={10} className={selectedPoints === 50 ? 'fill-rose-400' : ''} />
+                <span>3</span>
+                <Star size={10} className={selectedPoints === 3 ? 'fill-rose-400' : ''} />
               </button>
             </div>
           </div>
@@ -239,7 +239,7 @@ export default function ChoresClient({ initialChores, coupleId, currentUserId, c
                   className="relative group flex flex-col items-center justify-center p-4 min-w-[100px] max-w-[110px] rounded-2xl transition-all duration-200 shadow-sm cursor-pointer active:scale-95 select-none bg-emerald-600 hover:bg-emerald-500 border border-emerald-500 shadow-emerald-900/20"
                 >
                   <div className="absolute top-1.5 left-1.5 bg-emerald-950/50 text-emerald-200 text-[10px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 backdrop-blur-sm">
-                    {chore.points || 10} <Star size={8} className="fill-emerald-200" />
+                    {chore.points || 1} <Star size={8} className="fill-emerald-200" />
                   </div>
                   <div className="mb-2 mt-3 drop-shadow-md">
                     <Icon size={26} className="text-white" />
@@ -269,7 +269,7 @@ export default function ChoresClient({ initialChores, coupleId, currentUserId, c
                   className="relative group flex flex-col items-center justify-center p-4 min-w-[90px] max-w-[110px] rounded-2xl transition-all duration-200 shadow-sm cursor-pointer active:scale-95 select-none bg-zinc-900 border border-zinc-800/80 opacity-70"
                 >
                   <div className={`absolute top-1.5 left-1.5 text-[10px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ${isMine ? 'bg-emerald-500/20 text-emerald-400' : 'bg-indigo-500/20 text-indigo-400'}`}>
-                    +{chore.points || 10}
+                    +{chore.points || 1}
                   </div>
                   <div className="mb-2 mt-3 scale-90 opacity-50">
                     <Icon size={28} className="text-zinc-500" />
