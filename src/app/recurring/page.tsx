@@ -94,7 +94,7 @@ export default async function RecurringExpensesPage() {
   let expenses: any = [];
   try {
     expenses = await pb.collection('recurring_expenses').getFullList({
-      filter: `couple_id="${userProfile.couple_id}"`,
+      filter: `couple_id="${userProfile.couple_id}" && is_paused=false`,
       expand: 'category_id',
       sort: 'day_of_month'
     });
