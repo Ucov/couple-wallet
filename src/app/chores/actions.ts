@@ -4,7 +4,7 @@ import { getServerPB } from '@/lib/pocketbase-server'
 import { revalidatePath } from 'next/cache'
 import { sendPushToPartner } from '@/utils/webPush'
 
-export async function addChore(title: string, points: number = 10) {
+export async function addChore(title: string, points: number = 10, is_recurring: boolean = false) {
   try {
     const pb = await getServerPB()
     const user = pb.authStore.model
@@ -19,13 +19,13 @@ export async function addChore(title: string, points: number = 10) {
     const coupleId = profile.couple_id
 
     try {
-      await pb.collection('chores').create({ couple_id: coupleId, title, points })
+      await pb.collection('chores').create({ couple_id: coupleId, title, points, is_recurring })
     } catch (error: any) {
       console.error(error)
       return { error: 'No se pudo añadir la tarea' }
     }
 
-    sendPushToPartner(coupleId, user.id, '🧹 Nueva tarea', `${user.name || 'Tu pareja'} ha añadido la tarea: ${title}`, '/chores')
+    sendPushToPartner(coupleId, user.id, '🆕 Nueva tarea', `${user.name || 'Tu pareja'} ha añadido la tarea: ${title}`, '/chores')
     return { success: true }
   } catch (err: any) {
     return { error: err.message || String(err) }
@@ -43,6 +43,39 @@ export async function toggleChoreStatus(id: string, isDone: boolean) {
         is_done: isDone,
         completed_at: isDone ? new Date().toISOString() : null,
         completed_by: isDone ? user.id : null
+      })
+    } catch (error: any) {
+      return { error: error.message }
+    }
+    revalidatePath('/chores')
+    return { success: true }
+  } catch (err: any) {
+    return { error: err.message || String(err) }
+  }
+}
+
+export async function logRecurringChore(id: string) {
+  try {
+    const pb = await getServerPB()
+    const user = pb.authStore.model
+    if (!user) return { error: 'No auth' }
+
+    let original
+    try {
+      original = await pb.collection('chores').getOne(id)
+    } catch (e) {
+      return { error: 'Chore not found' }
+    }
+
+    try {
+      await pb.collection('chores').create({
+        couple_id: original.couple_id,
+        title: original.title,
+        points: original.points,
+        is_done: true,
+        is_recurring: false,
+        completed_at: new Date().toISOString(),
+        completed_by: user.id
       })
     } catch (error: any) {
       return { error: error.message }

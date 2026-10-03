@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useTransition, useEffect, useMemo } from 'react'
-import { PlusCircle, Trash2, X, Star, Trophy } from 'lucide-react'
-import { addChore, toggleChoreStatus, deleteChore } from './actions'
+import { PlusCircle, Trash2, X, Star, Trophy, Repeat, Briefcase } from 'lucide-react'
+import { addChore, toggleChoreStatus, deleteChore, logRecurringChore } from './actions'
 import { createClient } from '@/utils/supabase/client'
 import { getChoreIcon } from '@/utils/choreIcons'
 import confetti from 'canvas-confetti'
@@ -15,6 +15,7 @@ interface Chore {
   points: number
   completed_by: string | null
   completed_at: string | null
+  is_recurring?: boolean
 }
 
 interface Props {
@@ -32,6 +33,7 @@ export default function ChoresClient({ initialChores, coupleId, currentUserId, c
   const [chores, setChores] = useState<Chore[]>(initialChores)
   const [newTitle, setNewTitle] = useState('')
   const [selectedPoints, setSelectedPoints] = useState<number>(1)
+  const [isRecurring, setIsRecurring] = useState<boolean>(false)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
@@ -86,21 +88,51 @@ export default function ChoresClient({ initialChores, coupleId, currentUserId, c
     if (!newTitle.trim()) return
     const tempTitle = newTitle
     const tempPoints = selectedPoints
+    const tempRecurring = isRecurring
     
     // Optimistic: add immediately
     const tempId = crypto.randomUUID()
-    setChores(prev => [{ id: tempId, title: tempTitle, is_done: false, assigned_to: null, points: tempPoints, completed_by: null, completed_at: null }, ...prev])
+    setChores(prev => [{ id: tempId, title: tempTitle, is_done: false, assigned_to: null, points: tempPoints, completed_by: null, completed_at: null, is_recurring: tempRecurring }, ...prev])
     setNewTitle('')
     setSelectedPoints(1)
+    setIsRecurring(false)
     
     startTransition(async () => { 
-      await addChore(tempTitle, tempPoints) 
+      await addChore(tempTitle, tempPoints, tempRecurring) 
       broadcastSync()
       router.refresh()
     })
   }
 
-  const handleToggle = (id: string, currentStatus: boolean, chorePoints: number = 0) => {
+  const handleToggle = (id: string, currentStatus: boolean, chorePoints: number = 0, isRecurringChore: boolean = false) => {
+    if (isRecurringChore && !currentStatus) {
+      const chore = chores.find(c => c.id === id)
+      if (!chore) return
+      
+      const tempId = crypto.randomUUID()
+      setChores(prev => [
+        { ...chore, id: tempId, is_done: true, is_recurring: false, completed_by: currentUserId, completed_at: new Date().toISOString() },
+        ...prev
+      ])
+      
+      confetti({
+        particleCount: chorePoints,
+        spread: 60,
+        origin: { y: 0.8 },
+        colors: ['#10b981', '#f59e0b', '#fbbf24']
+      })
+
+      startTransition(async () => {
+        const res = await logRecurringChore(id)
+        if (res?.error) alert('Error: ' + res.error)
+        else {
+          broadcastSync()
+          router.refresh()
+        }
+      })
+      return;
+    }
+
     setChores(prev => prev.map(c => c.id === id ? { 
       ...c, 
       is_done: !currentStatus,
@@ -168,6 +200,22 @@ export default function ChoresClient({ initialChores, coupleId, currentUserId, c
       {/* Añadir Tarea con Gamificación */}
       <div className="bg-zinc-900/40 border border-zinc-800 rounded-3xl p-4 shadow-lg">
         <form onSubmit={handleAdd} className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              type="button"
+              onClick={() => setIsRecurring(false)}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${!isRecurring ? 'bg-zinc-800 text-white' : 'text-zinc-500 hover:bg-zinc-800/50'}`}
+            >
+              <Briefcase size={14} /> Puntual
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsRecurring(true)}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${isRecurring ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-zinc-500 hover:bg-zinc-800/50'}`}
+            >
+              <Repeat size={14} /> Fija
+            </button>
+          </div>
           <div className="flex gap-2">
             <input
               type="text"
@@ -235,12 +283,17 @@ export default function ChoresClient({ initialChores, coupleId, currentUserId, c
               return (
                 <div
                   key={chore.id}
-                  onClick={() => handleToggle(chore.id, chore.is_done, chore.points)}
+                  onClick={() => handleToggle(chore.id, chore.is_done, chore.points, chore.is_recurring)}
                   className="relative group flex flex-col items-center justify-center p-4 min-w-[100px] max-w-[110px] rounded-2xl transition-all duration-200 shadow-sm cursor-pointer active:scale-95 select-none bg-emerald-600 hover:bg-emerald-500 border border-emerald-500 shadow-emerald-900/20"
                 >
                   <div className="absolute top-1.5 left-1.5 bg-emerald-950/50 text-emerald-200 text-[10px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 backdrop-blur-sm">
                     {chore.points || 1} <Star size={8} className="fill-emerald-200" />
                   </div>
+                  {chore.is_recurring && (
+                    <div className="absolute top-1.5 right-1.5 bg-indigo-950/80 text-indigo-300 p-1 rounded-full backdrop-blur-sm">
+                      <Repeat size={10} />
+                    </div>
+                  )}
                   <div className="mb-2 mt-3 drop-shadow-md">
                     <Icon size={26} className="text-white" />
                   </div>
@@ -269,7 +322,7 @@ export default function ChoresClient({ initialChores, coupleId, currentUserId, c
                   className="relative group flex flex-col items-center justify-center p-4 min-w-[90px] max-w-[110px] rounded-2xl transition-all duration-200 shadow-sm cursor-pointer active:scale-95 select-none bg-zinc-900 border border-zinc-800/80 opacity-70"
                 >
                   <div className={`absolute top-1.5 left-1.5 text-[10px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ${isMine ? 'bg-emerald-500/20 text-emerald-400' : 'bg-indigo-500/20 text-indigo-400'}`}>
-                    +{chore.points || 1}
+                    +{chore.points || 1} • {isMine ? 'Yo' : partnerName.substring(0, 3)}
                   </div>
                   <div className="mb-2 mt-3 scale-90 opacity-50">
                     <Icon size={28} className="text-zinc-500" />
