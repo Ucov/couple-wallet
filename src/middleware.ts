@@ -34,10 +34,9 @@ export async function middleware(request: NextRequest) {
   }
 
   // Export the updated auth store data back to the response cookie
-  const isProd = process.env.NODE_ENV === 'production';
   response.headers.append(
     'set-cookie',
-    pb.authStore.exportToCookie({ secure: isProd, httpOnly: true })
+    pb.authStore.exportToCookie({ secure: false, httpOnly: true })
   );
 
   return response;

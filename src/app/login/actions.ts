@@ -15,13 +15,12 @@ export async function login(formData: FormData) {
     await pb.collection('users').authWithPassword(email, password)
     
     // Save to cookies
-    const isProd = process.env.NODE_ENV === 'production'
     const cookieStore = await cookies()
-    const cookieStr = pb.authStore.exportToCookie({ secure: isProd, httpOnly: true })
+    const cookieStr = pb.authStore.exportToCookie({ secure: false, httpOnly: true })
     const cookieVal = decodeURIComponent(cookieStr.split(';')[0].replace('pb_auth=', ''))
     cookieStore.set('pb_auth', cookieVal, {
       httpOnly: true,
-      secure: isProd,
+      secure: false,
       path: '/',
       maxAge: 60 * 60 * 24 * 7
     })
@@ -52,13 +51,12 @@ export async function signup(formData: FormData) {
     await pb.collection('users').authWithPassword(email, password)
     
     // Save to cookies
-    const isProd = process.env.NODE_ENV === 'production'
     const cookieStore = await cookies()
-    const cookieStr = pb.authStore.exportToCookie({ secure: isProd, httpOnly: true })
+    const cookieStr = pb.authStore.exportToCookie({ secure: false, httpOnly: true })
     const cookieVal = decodeURIComponent(cookieStr.split(';')[0].replace('pb_auth=', ''))
     cookieStore.set('pb_auth', cookieVal, {
       httpOnly: true,
-      secure: isProd,
+      secure: false,
       path: '/',
       maxAge: 60 * 60 * 24 * 7
     })
