@@ -5,10 +5,13 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install dependencies using npm to avoid pnpm symlink issues with Next.js standalone tracing
-COPY package.json package-lock.json* pnpm-lock.yaml* ./
-# We generate a package-lock.json on the fly if it doesn't exist by running npm install
-RUN npm install
+# Configure pnpm to hoist dependencies to avoid Next.js standalone symlink errors
+RUN npm install -g corepack@latest
+RUN corepack enable pnpm
+
+COPY package.json pnpm-lock.yaml* ./
+RUN echo "node-linker=hoisted" > .npmrc
+RUN pnpm config set ignore-scripts true && pnpm i --frozen-lockfile
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -23,7 +26,8 @@ ENV NEXT_PUBLIC_POCKETBASE_URL=$NEXT_PUBLIC_POCKETBASE_URL
 # Next.js collects completely anonymous telemetry data about general usage.
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN npm run build
+RUN npm install -g corepack@latest && corepack enable pnpm
+RUN pnpm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
