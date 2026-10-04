@@ -4,26 +4,25 @@ import PocketBase from 'pocketbase';
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
   
-  const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL || "http://192.168.1.11:8090"; console.log("MIDDLEWARE PB URL:", pbUrl); const pb = new PocketBase(pbUrl);
+  const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL || "http://192.168.1.11:8090";
+  const pb = new PocketBase(pbUrl);
   
-  // Load the store data from the request cookie string
-  const cookieHeader = request.headers.get('cookie') || '';
-  pb.authStore.loadFromCookie(cookieHeader);
+  // Read the pb_auth cookie directly (it's stored as raw JSON by the login action)
+  const pbCookie = request.cookies.get('pb_auth');
 
-  try {
-    // get an up-to-date auth store state by verifying and refreshing the loaded auth model (if any)
-    if (pb.authStore.isValid) {
-      await pb.collection('users').authRefresh();
+  if (pbCookie?.value) {
+    try {
+      const data = JSON.parse(pbCookie.value);
+      pb.authStore.save(data.token, data.record || data.model);
+    } catch (e) {
+      // cookie is malformed, ignore
     }
-  } catch (error) { console.error("MIDDLEWARE ERROR:", error);
-    // clear the auth store on failed refresh
-    pb.authStore.clear();
   }
 
   // Define public routes
   const isPublicRoute = request.nextUrl.pathname.startsWith('/login') || 
                         request.nextUrl.pathname.startsWith('/api') ||
-                        request.nextUrl.pathname === '/'; // Assuming landing is public, adjust if not
+                        request.nextUrl.pathname === '/';
 
   if (!pb.authStore.isValid && !isPublicRoute) {
     return NextResponse.redirect(new URL('/login', request.url));
@@ -32,12 +31,6 @@ export async function middleware(request: NextRequest) {
   if (pb.authStore.isValid && request.nextUrl.pathname.startsWith('/login')) {
     return NextResponse.redirect(new URL('/', request.url));
   }
-
-  // Export the updated auth store data back to the response cookie
-  response.headers.append(
-    'set-cookie',
-    pb.authStore.exportToCookie({ secure: false, httpOnly: true })
-  );
 
   return response;
 }
