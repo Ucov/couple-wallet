@@ -10,6 +10,6 @@ services:
     labels:
       - homepage.group=Finanzas
       - homepage.name=CoupleWallet
-      - homepage.icon=http://192.168.1.11:3005/icon-192x192.png
-      - homepage.href=http://192.168.1.11:3005
+      - homepage.icon=https://wallet.unailab.top/icon-192x192.png
+      - homepage.href=https://wallet.unailab.top
       - homepage.description=Gestión de finanzas en pareja
